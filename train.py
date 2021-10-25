@@ -28,9 +28,9 @@ DATASET_WORKER_COUNT: int = 2
 BATCH_COUNT = 2
 
 # Maximum RAM allowed to be used in megabytes. Approx 80-60 gigabytes is optimal
-IMAGE_CACHE_SIZE_MAX = 10000
+IMAGE_CACHE_SIZE_MAX = 90000
 
-META_FILES_DIRECTORY: str = "./dataset/"
+META_FILES_DIRECTORY: str = "../../../evgenyn/exposute_dataset/"
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
 # --- Dataset Filtering ---
@@ -42,6 +42,7 @@ TRAIN_TRUTH_EXPOSURE: List[float] = [1]
 # tune inputs
 TUNE_INPUT_EXPOSURE: List[float] = [0.1]
 TUNE_TRUTH_EXPOSURE: List[float] = [10]
+
 
 
 def Run():
@@ -59,13 +60,21 @@ def Run():
         ]
     )
 
+    SCENARIOS =  [1001,1002,1003,1007,1008]
+
     # construct filters to sort database
 
-    trainInputFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_INPUT_EXPOSURE)
-    trainTruthFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_TRUTH_EXPOSURE)
+    filterScenarios = functools.partial(cel_filters.FilterExactScenarios,SCENARIOS)
 
-    tuneInputFilter = functools.partial(cel_filters.FilterExactInList, TUNE_INPUT_EXPOSURE)
-    tuneTruthFilter = functools.partial(cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE)
+    trainInputFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_INPUT_EXPOSURE)
+    trainInputFilter = functools.partial(cel_filters.Chain, [filterScenarios,trainInputFilter])
+
+    trainTruthFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_TRUTH_EXPOSURE)
+    trainTruthFilter = functools.partial(cel_filters.Chain, [filterScenarios,trainTruthFilter])
+
+
+    # tuneInputFilter = functools.partial(cel_filters.FilterExactInList, TUNE_INPUT_EXPOSURE)
+    # tuneTruthFilter = functools.partial(cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE)
 
     dataloaderFactory = CELDataloaderFactory(
         META_FILES_DIRECTORY, batch=BATCH_COUNT, cacheLimit=IMAGE_CACHE_SIZE_MAX,
@@ -94,10 +103,10 @@ def Run():
             trainTransforms, trainInputFilter, trainTruthFilter
         )
 
-        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=1e-4)
-        wrapper.Train(trainDataloader, trainToEpoch=2000, learningRate=1e-5)
-        wrapper.Train(trainDataloader, trainToEpoch=3000, learningRate=1e-6)
-        wrapper.Train(trainDataloader, trainToEpoch=4000, learningRate=1e-7)
+        wrapper.Train(trainDataloader, trainToEpoch=250, learningRate=1e-4)
+        wrapper.Train(trainDataloader, trainToEpoch=500, learningRate=1e-5)
+        wrapper.Train(trainDataloader, trainToEpoch=750, learningRate=1e-6)
+        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=1e-7)
 
         # free up memory
         del trainDataloader
@@ -105,23 +114,23 @@ def Run():
         wrapper.metaDict["model_tune_state"] = True
         wrapper.Save(WEIGHTS_DIRECTORY)
 
-    # tuning starts here, rebuild everything
-    tuneDataloader = dataloaderFactory.GetTrain(
-        trainTransforms, tuneInputFilter, tuneTruthFilter
-    )
+    # # tuning starts here, rebuild everything
+    # tuneDataloader = dataloaderFactory.GetTrain(
+    #     trainTransforms, tuneInputFilter, tuneTruthFilter
+    # )
 
-    network = CELNet(adaptive=True)
-    optimParams = network.TuningMode()
+    # network = CELNet(adaptive=True)
+    # optimParams = network.TuningMode()
 
-    optimiser = optim.Adam(optimParams, lr=1e-4)
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
-    wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
+    # optimiser = optim.Adam(optimParams, lr=1e-4)
+    # wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
+    # wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
-    wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+    # wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
 
-    wrapper.Train(tuneDataloader, trainToEpoch=4350, learningRate=1e-4)
-    wrapper.Train(tuneDataloader, trainToEpoch=4700, learningRate=1e-5)
-    wrapper.Train(tuneDataloader, trainToEpoch=5000, learningRate=1e-6)
+    # wrapper.Train(tuneDataloader, trainToEpoch=4350, learningRate=1e-4)
+    # wrapper.Train(tuneDataloader, trainToEpoch=4700, learningRate=1e-5)
+    # wrapper.Train(tuneDataloader, trainToEpoch=5000, learningRate=1e-6)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,12 @@ class BaseAdanet(nn.Module):
             if name.find(AdaptiveFM.PARAM_NAME) >= 0:
                 tensor.data.zero_()
 
+        for name, tensor in self.named_parameters():
+            if name.find("const") >= 0:
+                tensor.data.normal_(0,0.1)
+            if name.find("exp") >= 0:
+                tensor.data.normal_(1,0.01)
+
     def TuningMode(self):
         """
             Sets tune mode and returns model parameters to be used by optimiser.

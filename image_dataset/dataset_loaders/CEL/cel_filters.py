@@ -42,3 +42,16 @@ def FilterBetween(minExposure: float, maxExposure: float, images: List[CELImage]
 
     return newList
 
+def FilterExactScenarios(scenarioList: List[int], images: List[CELImage]):
+    newList: List[CELImage] = []
+
+    for image in images:
+        if image.scenario in scenarioList:
+            newList.append(image)
+
+    return newList
+
+def Chain(funcs: List,images: List[CELImage]):
+    for func in funcs:
+        images = func(images)
+    return images

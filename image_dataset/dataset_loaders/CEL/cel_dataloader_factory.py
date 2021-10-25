@@ -12,7 +12,7 @@ from image_dataset.image_dataset import ImageDataset
 from typing import Callable
 
 TRAIN_META_DIR = "train.JSON"
-TEST_META_DIR = "test.JSON"
+TEST_META_DIR = "train.JSON"
 
 
 class CELDataloaderFactory:

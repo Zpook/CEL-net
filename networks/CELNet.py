@@ -6,6 +6,40 @@ from networks.blocks import AdaDoubleConv2d, AdaptiveFM
 from . import BaseAdanet
 
 
+class Gamma(nn.Module):
+
+    def __init__(self):
+        super(Gamma, self).__init__()
+        self.const = torch.nn.Parameter(torch.tensor(1.0))
+        self.exp = torch.nn.Parameter(torch.tensor(1.0))
+
+    def forward(self, x):
+        return self.const + x ** self.exp
+
+
+class LayeredGamma(nn.Module):
+
+    def __init__(self, channels: int):
+        super(LayeredGamma, self).__init__()
+        self.channels = torch.nn.ModuleList()
+
+        for index in range(channels):
+            self.channels.append(Gamma())
+
+    def forward(self, x):
+        channels = x.shape[1]
+
+        if channels != self.channels.__len__():
+            raise Exception("Channel mistmatch")
+
+        for index in range(channels):
+            data = x[:,index,:,:].view(x.shape[0],x.shape[2],x.shape[3])
+            data = self.channels[index](data)
+        
+        return x
+
+
+
 class CELNet(BaseAdanet):
     def __init__(self, adaptive: bool = False):
         super().__init__()
@@ -32,8 +66,12 @@ class CELNet(BaseAdanet):
         self.conv10 = nn.Conv2d(in_channels=32, out_channels=12, kernel_size=1)
         self.ada10 = AdaptiveFM(12, 3)
 
+        self.gammaIn = LayeredGamma(4)
+        self.gammaOut = LayeredGamma(12)
+
     def forward(self, x):
 
+        x = self.gammaIn(x)
 
         conv1 = self.adaConv1(x)
         pool1 = functional.max_pool2d(conv1, kernel_size=2)
@@ -83,7 +121,9 @@ class CELNet(BaseAdanet):
         conv10 = self.conv10(conv9)
         if self.adaptive:
             conv10 = self.ada10(conv10)
+
+        conv10 = self.gammaOut(conv10)
+
         out = functional.pixel_shuffle(conv10, 2)
 
         return out
-

@@ -28,23 +28,23 @@ import util.common as common
 IMAGE_BPS: int = 16
 # can be a 2D tuple, make sure BOTH values are divisible by 16
 # PATCH_SIZE = (2000,3008) # the maximum for our dataset. You'll probably need to use CPU for this, and around 40+ GB of RAM
-PATCH_SIZE: Union[Tuple[int], int] = 512
+PATCH_SIZE: Union[Tuple[int], int] = (2000,3008)
 # if GPU has insufficient memory (will result in crashes), switch DEVICE to "cpu"
 #  make sure you have enoguh RAM available if you do, especially if you cache images
-DEVICE: str = "cuda:0"
+DEVICE: str = "cpu"
 
 # Maximum memory allowed to be used in megabytes. Approx 80-60 gigabytes is ideal
 # If you are running just one test (decided by number of items in TUNE_FACTORS), set this to 0.
 IMAGE_CACHE_SIZE_MAX = 0
 
-META_FILES_DIRECTORY: str = "./dataset/"
+META_FILES_DIRECTORY: str = "../../../evgenyn/exposute_dataset/"
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 OUTPUT_DIRECTORY: str = "./output/"
 
 TUNE_FACTORS = [0.5]
 
 # Write an output image every SAVE_IMAGE_RATE input images
-SAVE_IMAGE_RATE = 10
+SAVE_IMAGE_RATE = 1
 
 # --- Dataset Filtering ---
 TEST_INPUT_EXPOSURE: List[float] = [0.1]
@@ -144,12 +144,19 @@ def Run():
         ]
     )
 
+    SCENARIOS =  [1001,1002,1003,1007,1008]
+    filterScenarios = functools.partial(cel_filters.FilterExactScenarios,SCENARIOS)
+
     testInputFilter = functools.partial(
         cel_filters.FilterExactInList, TEST_INPUT_EXPOSURE
     )
+    testInputFilter = functools.partial(cel_filters.Chain, [filterScenarios,testInputFilter])
+
     testTruthFilter = functools.partial(
         cel_filters.FilterExactInList, TEST_TRUTH_EXPOSURE
     )
+    testTruthFilter = functools.partial(cel_filters.Chain, [filterScenarios,testTruthFilter])
+    
 
     dataloaderFactory = CELDataloaderFactory(
         META_FILES_DIRECTORY,
