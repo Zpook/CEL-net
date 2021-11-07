@@ -5,39 +5,30 @@ import torch.nn.functional as functional
 from networks.blocks import AdaDoubleConv2d, AdaptiveFM
 from . import BaseAdanet
 
-
-class Gamma(nn.Module):
-
-    def __init__(self):
-        super(Gamma, self).__init__()
-        self.const = torch.nn.Parameter(torch.tensor(1.0))
-        self.exp = torch.nn.Parameter(torch.tensor(1.0))
-
-    def forward(self, x):
-        return self.const + x ** self.exp
-
-
 class LayeredGamma(nn.Module):
-
+    
     def __init__(self, channels: int):
         super(LayeredGamma, self).__init__()
-        self.channels = torch.nn.ModuleList()
+        self.exp = torch.nn.parameter.Parameter(torch.tensor([1.0]*channels),requires_grad=True)
+        self.const = torch.nn.parameter.Parameter(torch.tensor([1.0]*channels),requires_grad=True)
 
-        for index in range(channels):
-            self.channels.append(Gamma())
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         channels = x.shape[1]
 
-        if channels != self.channels.__len__():
+        if channels != self.exp.__len__():
             raise Exception("Channel mistmatch")
 
-        for index in range(channels):
-            data = x[:,index,:,:].view(x.shape[0],x.shape[2],x.shape[3])
-            data = self.channels[index](data)
-        
-        return x
+        # out = torch.clamp(x,0.0,1.0)
+        out = self.relu(x)
 
+        out = out.permute([0,2,3,1])
+
+        out = 1 + self.exp * torch.log(1+out) + 0.5 * (self.exp**2) * (torch.log(1+out)**2) + (1/6) * (self.exp**3) * (torch.log(1+out)**3) + (1/24) * (self.exp**4) * (torch.log(1+out)**4)
+
+        out = out.permute([0,3,1,2])
+        
 
 
 class CELNet(BaseAdanet):

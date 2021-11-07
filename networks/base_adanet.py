@@ -25,7 +25,7 @@ class BaseAdanet(nn.Module):
 
         for name, tensor in self.named_parameters():
             if name.find("const") >= 0:
-                tensor.data.normal_(0,0.1)
+                tensor.data.normal_(1,0.1)
             if name.find("exp") >= 0:
                 tensor.data.normal_(1,0.01)
 
