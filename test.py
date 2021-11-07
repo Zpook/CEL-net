@@ -48,7 +48,7 @@ SAVE_IMAGE_RATE = 1
 
 # --- Dataset Filtering ---
 TEST_INPUT_EXPOSURE: List[float] = [0.1]
-TEST_TRUTH_EXPOSURE: List[float] = [5]
+TEST_TRUTH_EXPOSURE: List[float] = [10]
 
 
 def GetTestCallbacks(
@@ -144,7 +144,7 @@ def Run():
         ]
     )
 
-    SCENARIOS =  [1001,1002,1003,1007,1008]
+    SCENARIOS =  [2010,2012,2014,2016,2018]
     filterScenarios = functools.partial(cel_filters.FilterExactScenarios,SCENARIOS)
 
     testInputFilter = functools.partial(
@@ -168,7 +168,7 @@ def Run():
         testTransforms, testInputFilter, testTruthFilter
     )
 
-    network = CELNet(adaptive=True)
+    network = CELNet(adaptive=False)
     optimiser = optim.Adam(network.parameters(), lr=1e-4)
     wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
 
@@ -204,7 +204,7 @@ def Run():
         wrapper.OnTestIter += tuneFactorLambda
         wrapper.OnTestIter += saveImageCallback
 
-        network.InterpolateAndLoadWeights(factor)
+        # network.InterpolateAndLoadWeights(factor)
         wrapper.Test(testDataloader)
 
         wrapper.OnTestIter -= tuneFactorLambda

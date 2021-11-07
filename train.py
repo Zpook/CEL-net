@@ -2,6 +2,8 @@ import logging
 import sys
 import os
 from typing import Union, Tuple, List
+import metric_handlers
+
 
 import torch
 import torch.nn
@@ -37,11 +39,11 @@ WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
 # train inputs
 TRAIN_INPUT_EXPOSURE: List[float] = [0.1]
-TRAIN_TRUTH_EXPOSURE: List[float] = [1]
+TRAIN_TRUTH_EXPOSURE: List[float] = [10]
 
 # tune inputs
-TUNE_INPUT_EXPOSURE: List[float] = [0.1]
-TUNE_TRUTH_EXPOSURE: List[float] = [10]
+# TUNE_INPUT_EXPOSURE: List[float] = [0.1]
+# TUNE_TRUTH_EXPOSURE: List[float] = [10]
 
 
 
@@ -60,7 +62,7 @@ def Run():
         ]
     )
 
-    SCENARIOS =  [1001,1002,1003,1007,1008]
+    SCENARIOS =  [2001,2002,2003,2004,2005]
 
     # construct filters to sort database
 
@@ -93,9 +95,21 @@ def Run():
     isModelInTuneState = checkpoint["META"]["model_tune_state"]
     del checkpoint
 
+
+    csvFileDir: str = "./local/train_data.csv"
+
+    iterMetric = metric_handlers.Metric[int](name="Iter")
+    lossMetric = metric_handlers.Metric[float](name="Loss")
+    metricsToCsv = metric_handlers.MetricsToCsv(
+        csvFileDir, [iterMetric, lossMetric]
+    )
+
     if not isModelInTuneState:
 
         wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+
+        wrapper.OnTrainIter += lambda avgLoss, lr: lossMetric.Call(avgLoss)
+
 
         wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
@@ -103,16 +117,18 @@ def Run():
             trainTransforms, trainInputFilter, trainTruthFilter
         )
 
-        wrapper.Train(trainDataloader, trainToEpoch=250, learningRate=1e-4)
-        wrapper.Train(trainDataloader, trainToEpoch=500, learningRate=1e-5)
-        wrapper.Train(trainDataloader, trainToEpoch=750, learningRate=1e-6)
-        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=1e-7)
+        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=1e-4)
+        wrapper.Train(trainDataloader, trainToEpoch=2000, learningRate=1e-5)
+        wrapper.Train(trainDataloader, trainToEpoch=3000, learningRate=1e-6)
+        wrapper.Train(trainDataloader, trainToEpoch=4000, learningRate=1e-7)
 
         # free up memory
         del trainDataloader
 
         wrapper.metaDict["model_tune_state"] = True
         wrapper.Save(WEIGHTS_DIRECTORY)
+
+        metricsToCsv.Write()
 
     # # tuning starts here, rebuild everything
     # tuneDataloader = dataloaderFactory.GetTrain(

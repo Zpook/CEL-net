@@ -71,7 +71,7 @@ class CELNet(BaseAdanet):
 
     def forward(self, x):
 
-        x = self.gammaIn(x)
+        # x = self.gammaIn(x)
 
         conv1 = self.adaConv1(x)
         pool1 = functional.max_pool2d(conv1, kernel_size=2)
@@ -122,7 +122,7 @@ class CELNet(BaseAdanet):
         if self.adaptive:
             conv10 = self.ada10(conv10)
 
-        conv10 = self.gammaOut(conv10)
+        # conv10 = self.gammaOut(conv10)
 
         out = functional.pixel_shuffle(conv10, 2)
 
