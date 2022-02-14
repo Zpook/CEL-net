@@ -13,6 +13,7 @@ from image_dataset.dataset_loaders import (
 from typing import Dict, List, Callable, Union
 
 IMAGE_BPS = 16
+RGB_GROUND_TRUTH = True
 
 
 class CELImage(BaseImage):
@@ -64,7 +65,13 @@ class CELImage(BaseImage):
 
                 outputArr.append(
                     cls(
-                        imagePath, scenario, location, exposure, focal_length, f_number, iso
+                        imagePath,
+                        scenario,
+                        location,
+                        exposure,
+                        focal_length,
+                        f_number,
+                        iso,
                     )
                 )
 
@@ -162,7 +169,10 @@ class CELDatasetLoader(BaseDatasetLoader):
             truthInd = truthDict[trainKey]
 
             for index, image in enumerate(truthInd):
-                image.LoadHook = MethodType(RAWImageLoadHook, image)
+
+                if RGB_GROUND_TRUTH:
+                    image.LoadHook = MethodType(RAWImageLoadHook, image)
+
                 truthInd[index] = image
 
             newPair = CELPair(trainInd, truthInd)
