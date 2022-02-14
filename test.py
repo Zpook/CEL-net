@@ -150,9 +150,7 @@ def Run():
 
     testTransforms = transforms.Compose(
         [
-            common.GetEvalTransforms(
-                IMAGE_BPS, PATCH_SIZE, normalize=False, device=DEVICE
-            ),
+            common.GetEvalTransforms(PATCH_SIZE, device=DEVICE),
             exposureNormTransform,
         ]
     )
