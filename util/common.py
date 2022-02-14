@@ -34,13 +34,13 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
 
 
 def GetTrainTransforms(
-    rgbBps: float, patchSize: Union[Tuple[int], int], normalize: bool, device: str
+    patchSize: Union[Tuple[int], int], device: str
 ):
 
     transform = transforms.Compose(
         [
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
-            dataset_transforms.RandomCropRAWandRGB(patchSize),
+            dataset_transforms.RandomCrop(patchSize),
             dataset_transforms.RandomFlip(),
             dataset_transforms.ToTensor(),
             dataset_transforms.Permute(2, 0, 1),
@@ -48,57 +48,21 @@ def GetTrainTransforms(
         ]
     )
 
-    if normalize:
-
-        normTransforms = transforms.Compose(
-            [
-                dataset_transforms.Normalize(
-                    0, 2 ** rgbBps - 1, applyTrain=False, applyTruth=True
-                ),
-                dataset_transforms.Normalize(
-                    RAW_BLACK_LEVEL,
-                    RAW_MAX - RAW_BLACK_LEVEL,
-                    applyTrain=True,
-                    applyTruth=False,
-                ),
-            ]
-        )
-
-        transform = transforms.Compose([normTransforms, transform])
-
     return transform
 
 
 def GetEvalTransforms(
-    rgbBps: float, patchSize: Union[int, Tuple[int]], normalize: bool, device: str
+    patchSize: Union[int, Tuple[int]], device: str
 ):
 
     transform = transforms.Compose(
         [
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
-            dataset_transforms.CenterCropRAWandRGB(patchSize),
+            dataset_transforms.CenterCrop(patchSize),
             dataset_transforms.ToTensor(),
             dataset_transforms.Permute(2, 0, 1),
             dataset_transforms.ToDevice(device),
         ]
     )
-
-    if normalize:
-
-        normTransforms = transforms.Compose(
-            [
-                dataset_transforms.Normalize(
-                    0, 2 ** rgbBps - 1, applyTrain=False, applyTruth=True
-                ),
-                dataset_transforms.Normalize(
-                    RAW_BLACK_LEVEL,
-                    RAW_MAX - RAW_BLACK_LEVEL,
-                    applyTrain=True,
-                    applyTruth=False,
-                ),
-            ]
-        )
-
-        transform = transforms.Compose([normTransforms, transform])
 
     return transform
