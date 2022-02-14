@@ -30,10 +30,9 @@ class CELNet(BaseAdanet):
         self.adaConv9 = AdaDoubleConv2d(64, 32, adaptive)
 
         self.conv10 = nn.Conv2d(in_channels=32, out_channels=4, kernel_size=1)
-        self.ada10 = AdaptiveFM(4, 4)
+        self.ada10 = AdaptiveFM(4, 3)
 
     def forward(self, x):
-
 
         conv1 = self.adaConv1(x)
         pool1 = functional.max_pool2d(conv1, kernel_size=2)

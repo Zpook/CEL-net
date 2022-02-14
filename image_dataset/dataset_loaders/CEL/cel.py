@@ -13,7 +13,7 @@ from image_dataset.dataset_loaders import (
 from typing import Dict, List, Callable, Union
 
 IMAGE_BPS = 16
-RGB_GROUND_TRUTH = True
+RGB_GROUND_TRUTH = False
 
 
 class CELImage(BaseImage):
