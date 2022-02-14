@@ -39,7 +39,7 @@ def GetTrainTransforms(
 
     transform = transforms.Compose(
         [
-            dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
+            dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=True),
             dataset_transforms.RandomCrop(patchSize),
             dataset_transforms.RandomFlip(),
             dataset_transforms.ToTensor(),
@@ -57,7 +57,7 @@ def GetEvalTransforms(
 
     transform = transforms.Compose(
         [
-            dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
+            dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=True),
             dataset_transforms.CenterCrop(patchSize),
             dataset_transforms.ToTensor(),
             dataset_transforms.Permute(2, 0, 1),

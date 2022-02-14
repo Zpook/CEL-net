@@ -29,8 +29,8 @@ class CELNet(BaseAdanet):
         self.up9 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
         self.adaConv9 = AdaDoubleConv2d(64, 32, adaptive)
 
-        self.conv10 = nn.Conv2d(in_channels=32, out_channels=12, kernel_size=1)
-        self.ada10 = AdaptiveFM(12, 4)
+        self.conv10 = nn.Conv2d(in_channels=32, out_channels=4, kernel_size=1)
+        self.ada10 = AdaptiveFM(4, 4)
 
     def forward(self, x):
 
@@ -83,7 +83,6 @@ class CELNet(BaseAdanet):
         conv10 = self.conv10(conv9)
         if self.adaptive:
             conv10 = self.ada10(conv10)
-        out = functional.pixel_shuffle(conv10, 2)
 
-        return out
+        return conv10
 
