@@ -54,23 +54,32 @@ def Run():
 
     trainTransforms = transforms.Compose(
         [
-            common.GetTrainTransforms(
-                IMAGE_BPS, PATCH_SIZE, normalize=False, device=DEVICE
-            ),
+            common.GetTrainTransforms(PATCH_SIZE, device=DEVICE),
             exposureNormTransform,
         ]
     )
 
     # construct filters to sort database
 
-    trainInputFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_INPUT_EXPOSURE)
-    trainTruthFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_TRUTH_EXPOSURE)
+    trainInputFilter = functools.partial(
+        cel_filters.FilterExactInList, TRAIN_INPUT_EXPOSURE
+    )
+    trainTruthFilter = functools.partial(
+        cel_filters.FilterExactInList, TRAIN_TRUTH_EXPOSURE
+    )
 
-    tuneInputFilter = functools.partial(cel_filters.FilterExactInList, TUNE_INPUT_EXPOSURE)
-    tuneTruthFilter = functools.partial(cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE)
+    tuneInputFilter = functools.partial(
+        cel_filters.FilterExactInList, TUNE_INPUT_EXPOSURE
+    )
+    tuneTruthFilter = functools.partial(
+        cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE
+    )
 
     dataloaderFactory = CELDataloaderFactory(
-        TRAIN_JSON,TEST_JSON, batch=BATCH_COUNT, cacheLimit=IMAGE_CACHE_SIZE_MAX,
+        TRAIN_JSON,
+        TEST_JSON,
+        batch=BATCH_COUNT,
+        cacheLimit=IMAGE_CACHE_SIZE_MAX,
     )
 
     network = CELNet(adaptive=False)
@@ -96,10 +105,9 @@ def Run():
             trainTransforms, trainInputFilter, trainTruthFilter
         )
 
-        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=1e-4)
-        wrapper.Train(trainDataloader, trainToEpoch=2000, learningRate=1e-5)
-        wrapper.Train(trainDataloader, trainToEpoch=3000, learningRate=1e-6)
-        wrapper.Train(trainDataloader, trainToEpoch=4000, learningRate=1e-7)
+        wrapper.Train(trainDataloader, trainToEpoch=400, learningRate=1e-4)
+        wrapper.Train(trainDataloader, trainToEpoch=800, learningRate=0.5 * 1e-4)
+        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=0.25 * 1e-4)
 
         # free up memory
         del trainDataloader
@@ -121,9 +129,8 @@ def Run():
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
 
-    wrapper.Train(tuneDataloader, trainToEpoch=4350, learningRate=1e-4)
-    wrapper.Train(tuneDataloader, trainToEpoch=4700, learningRate=1e-5)
-    wrapper.Train(tuneDataloader, trainToEpoch=5000, learningRate=1e-6)
+    wrapper.Train(tuneDataloader, trainToEpoch=1400, learningRate=1e-4)
+    wrapper.Train(tuneDataloader, trainToEpoch=1700, learningRate=0.5 * 1e-4)
 
 
 if __name__ == "__main__":
