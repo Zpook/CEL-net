@@ -5,9 +5,10 @@ import numpy as np
 
 from image_dataset import dataset_transforms
 from image_dataset.dataset_loaders.CEL import CELImage
+from util.rawrelight import RawRelight
 
 RAW_BLACK_LEVEL = 512
-RAW_MAX = 16383
+RAW_WHITE_LEVEL = 16383
 
 
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
@@ -22,7 +23,7 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
         truthData: CELImage,
     ):
         exposureRatio = (float(truthData.exposure) / trainingData.exposure) / (
-            RAW_MAX - RAW_BLACK_LEVEL
+            RAW_WHITE_LEVEL - RAW_BLACK_LEVEL
         )
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
         # to float and subtract black level
@@ -32,6 +33,23 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
 
         return [trainImage, truthImage]
 
+
+class NormByRelight(dataset_transforms._PairMetaTransform):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _Apply(
+        self,
+        trainImage: np.ndarray,
+        truthImage: np.ndarray,
+        trainingData: CELImage,
+        truthData: CELImage,
+    ):
+
+        trainImage -= RAW_BLACK_LEVEL
+        truthImage = truthImage / float(2 ** self.truthImageBps - 1)
+        trainImage = RawRelight.RelightByTruth(trainImage, truthImage)
+        trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
 
 def GetTrainTransforms(
     rgbBps: float, patchSize: Union[Tuple[int], int], normalize: bool, device: str
@@ -57,7 +75,7 @@ def GetTrainTransforms(
                 ),
                 dataset_transforms.Normalize(
                     RAW_BLACK_LEVEL,
-                    RAW_MAX - RAW_BLACK_LEVEL,
+                    RAW_WHITE_LEVEL - RAW_BLACK_LEVEL,
                     applyTrain=True,
                     applyTruth=False,
                 ),
@@ -92,7 +110,7 @@ def GetEvalTransforms(
                 ),
                 dataset_transforms.Normalize(
                     RAW_BLACK_LEVEL,
-                    RAW_MAX - RAW_BLACK_LEVEL,
+                    RAW_WHITE_LEVEL - RAW_BLACK_LEVEL,
                     applyTrain=True,
                     applyTruth=False,
                 ),

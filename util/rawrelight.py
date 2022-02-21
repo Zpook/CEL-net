@@ -1,32 +1,60 @@
-import imp
 import numpy as np
 
+
 class RawRelight:
+    @classmethod
+    def GetLightmap(cls, input: np.ndarray, truth: np.ndarray, maxWhite: int):
 
-    def __init__(self, lightmap) -> None:
-        self._lightmap = lightmap
+        map = np.zeros((maxWhite))
 
-    def RelightByTruth(input: np.ndarray, truth: np.ndarray, maxWhite: int):
+        for intensity in range(1, maxWhite):
+            indexes = input == intensity
 
-        inputImage = input.copy()
+            if indexes.sum() == 0:
+                map[intensity] = 1
+                continue
+
+            valuesTrue = truth[indexes]
+            targetMeanValue = np.mean(valuesTrue)
+
+            map[intensity] = targetMeanValue / intensity
+
+        return map
+
+    @classmethod
+    def RelightByTruth(cls, input: np.ndarray, truth: np.ndarray, maxWhite: int):
+
+        output = input.copy()
         imageTrue = truth.copy()
 
-        for intensity in range(1,maxWhite):
-            indexes = inputImage == intensity
+        for intensity in range(1, maxWhite):
+            indexes = input == intensity
 
             if indexes.sum() == 0:
                 continue
 
             valuesTrue = imageTrue[indexes]
             targetMeanValue = np.mean(valuesTrue)
-            meanValues = np.mean(inputImage[indexes])
 
-            if meanValues == 0:
+            multiplier = targetMeanValue / intensity
+            output[indexes] = output.astype("float64")[indexes] * multiplier
+            output = output.astype("uint16")
+
+        return output
+
+    def Relight(self, input: np.ndarray, lightmap, maxWhite: int):
+        output = input.copy()
+
+        for intensity in range(1, maxWhite):
+            if lightmap[intensity] == 1:
                 continue
 
-            multiplier = targetMeanValue / meanValues
-            inputImage[indexes] = inputImage.astype('float64')[indexes] * multiplier
-            inputImage = inputImage.astype('uint16')
+            indexes = input == intensity
 
-    def Relight(input: np.ndarray, maxWhite: int):
-        pass
+            if indexes.sum() == 0:
+                continue
+            
+            output[indexes] = output.astype("float64")[indexes] * lightmap[intensity]
+            output = output.astype("uint16")
+
+        return output
