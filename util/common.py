@@ -35,7 +35,8 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
 
 
 class NormByRelight(dataset_transforms._PairMetaTransform):
-    def __init__(self) -> None:
+    def __init__(self, truthImageBps: int) -> None:
+        self.truthImageBps: int = truthImageBps
         super().__init__()
 
     def _Apply(
@@ -45,11 +46,14 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainingData: CELImage,
         truthData: CELImage,
     ):
+        map = RawRelight.GetLightmap(trainingData.Load(),truthData.Load(),RAW_WHITE_LEVEL)
 
         trainImage -= RAW_BLACK_LEVEL
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
-        trainImage = RawRelight.RelightByTruth(trainImage, truthImage)
+        trainImage = RawRelight.Relight(trainImage, map, RAW_WHITE_LEVEL)
         trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
+
+        return [trainImage, truthImage]
 
 def GetTrainTransforms(
     rgbBps: float, patchSize: Union[Tuple[int], int], normalize: bool, device: str

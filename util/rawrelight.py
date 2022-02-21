@@ -24,8 +24,8 @@ class RawRelight:
     @classmethod
     def RelightByTruth(cls, input: np.ndarray, truth: np.ndarray, maxWhite: int):
 
-        output = input.copy()
-        imageTrue = truth.copy()
+        output = input.clone()
+        imageTrue = truth.clone()
 
         for intensity in range(1, maxWhite):
             indexes = input == intensity
@@ -42,8 +42,9 @@ class RawRelight:
 
         return output
 
+    @classmethod
     def Relight(self, input: np.ndarray, lightmap, maxWhite: int):
-        output = input.copy()
+        output = input.clone()
 
         for intensity in range(1, maxWhite):
             if lightmap[intensity] == 1:
