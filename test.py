@@ -146,7 +146,7 @@ def GetSaveImagesCallback(
 
 def Run():
 
-    exposureNormTransform = common.NormByExposureTime(IMAGE_BPS)
+    exposureNormTransform = common.NormByRelight(IMAGE_BPS)
 
     testTransforms = transforms.Compose(
         [
