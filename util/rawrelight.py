@@ -37,8 +37,8 @@ class RawRelight:
             targetMeanValue = np.mean(valuesTrue)
 
             multiplier = targetMeanValue / intensity
-            output[indexes] = output.astype("float64")[indexes] * multiplier
-            output = output.astype("uint16")
+            output[indexes] = output * multiplier
+            output = output
 
         return output
 
@@ -55,7 +55,7 @@ class RawRelight:
             if indexes.sum() == 0:
                 continue
             
-            output[indexes] = output.astype("float64")[indexes] * lightmap[intensity]
-            output = output.astype("uint16")
+            output[indexes] = output[indexes] * lightmap[intensity]
+            output = output
 
         return output
