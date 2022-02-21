@@ -106,6 +106,45 @@ class RandomCrop(_PairTransform):
 
         return [train, gtruth]
 
+class CenterCrop(_PairTransform):
+    """Crop center of image in a sample.
+
+    Args:
+        output_size (tuple, list ,int): Desired output size. 
+        If tuple or list: (height, width)
+        If int: square crop is made.
+    """
+
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def _Apply(self, train, gtruth):
+
+        h, w = train.shape[:2]
+        new_h, new_w = self.output_size
+
+        if new_h >= h:
+            top = 0
+        else:
+            top = int((h - int(new_h)) / 2)
+
+        if new_w >= w:
+            left = 0
+        else:
+            left = int((w - int(new_w)) / 2)
+
+        train = train[top : top + new_h, left : left + new_w]
+        gtruth = gtruth[top : top + new_h, left : left + new_w]
+
+        return [train, gtruth]
+
+
+
 
 class RandomCropRAWandRGB(_PairTransform):
     """Crop randomly the image in a sample.
@@ -115,9 +154,8 @@ class RandomCropRAWandRGB(_PairTransform):
         If tuple or list: (height, width)
         If int: square crop is made.
 
-    It is assumed that the sample consists of (RAW, RGB) images.
-    Whereas the dimensions of the RAW image are half of the RGB image.
-    The crop dimensions are assumed to be for the RAW image, and will be twice for the RGB image.
+    Expected samples : (RAW, RGB)
+    The crop dimensions are assumed to be for the RAW channels, and will be twice as large for the RGB image.
     """
 
     def __init__(self, output_size):
@@ -150,16 +188,15 @@ class RandomCropRAWandRGB(_PairTransform):
 
 
 class CenterCropRAWandRGB(_PairTransform):
-    """Crop randomly the image in a sample.
+    """Crop center of the image in a sample.
 
     Args:
         output_size (tuple, list ,int): Desired output size. 
         If tuple or list: (height, width)
         If int: square crop is made.
 
-    It is assumed that the sample consists of (RAW, RGB) images.
-    Whereas the dimensions of the RAW image are half of the RGB image.
-    The crop dimensions are assumed to be for the RAW image, and will be twice for the RGB image.
+    Expected samples : (RAW, RGB)
+    The crop dimensions are assumed to be for the RAW channels, and will be twice as large for the RGB image.
     """
 
     def __init__(self, output_size):
@@ -189,7 +226,6 @@ class CenterCropRAWandRGB(_PairTransform):
         gtruth = gtruth[top * 2 : top * 2 + new_h * 2, left * 2 : left * 2 + new_w * 2]
 
         return [image, gtruth]
-
 
 class RandomFlip(_PairTransform):
     """Random image flip"""
