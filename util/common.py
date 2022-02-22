@@ -29,6 +29,11 @@ def BayerUnpack(image):
     )
     return out
 
+def RawLevels(image):
+    image[image<512] = 512
+    image = image - 512
+    return image
+
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
     def __init__(self, truthImageBps: int):
         self.truthImageBps: int = truthImageBps
@@ -65,15 +70,17 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         truthData: CELImage,
     ):
         rawTrain = trainingData.Load()
+        rawTrain = RawLevels(rawTrain)
         rawTrain = BayerUnpack(rawTrain)
 
         rawTruth = truthData._LoadDefault()
+        rawTruth = RawLevels(rawTruth)
         rawTruth = BayerUnpack(rawTruth)
 
-        numChannels = rawTrain.shape[0]
+        numChannels = rawTrain.shape[-1]
 
         for channel in range(numChannels):
-            map = RawRelight.GetLightmap(rawTrain[channel,:,:],rawTruth[channel,:,:],RAW_WHITE_LEVEL)
+            map = RawRelight.GetLightmap(rawTrain[:,:,channel],rawTruth[:,:,channel],RAW_WHITE_LEVEL)
             trainImage[channel,:,:] = RawRelight.Relight(trainImage[channel,:,:], map, RAW_WHITE_LEVEL)
 
         trainImage -= RAW_BLACK_LEVEL
