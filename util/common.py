@@ -11,6 +11,24 @@ RAW_BLACK_LEVEL = 512
 RAW_WHITE_LEVEL = 16383
 
 
+def BayerUnpack(image):
+    # pack Bayer image to 4 channels
+    image = np.expand_dims(image, axis=2)
+    img_shape = image.shape
+    H = img_shape[0]
+    W = img_shape[1]
+
+    out = np.concatenate(
+        (
+            image[0:H:2, 0:W:2, :],
+            image[0:H:2, 1:W:2, :],
+            image[1:H:2, 1:W:2, :],
+            image[1:H:2, 0:W:2, :],
+        ),
+        axis=2,
+    )
+    return out
+
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
     def __init__(self, truthImageBps: int):
         self.truthImageBps: int = truthImageBps
@@ -46,7 +64,17 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainingData: CELImage,
         truthData: CELImage,
     ):
-        map = RawRelight.GetLightmap(trainingData.Load(),truthData.Load(),RAW_WHITE_LEVEL)
+        rawTrain = trainingData.Load()
+        rawTrain = BayerUnpack(rawTrain)
+
+        rawTruth = truthData._LoadDefault()
+        rawTruth = BayerUnpack(rawTruth)
+
+        numChannels = rawTrain.shape[0]
+
+        for channel in range(numChannels):
+            map = RawRelight.GetLightmap(rawTrain[channel,:,:],rawTruth[channel,:,:],RAW_WHITE_LEVEL)
+            trainImage[channel,:,:] = RawRelight.Relight(trainImage[channel,:,:], map, RAW_WHITE_LEVEL)
 
         trainImage -= RAW_BLACK_LEVEL
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)

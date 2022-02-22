@@ -13,6 +13,7 @@ class BaseImage:
 
         self._cache = None
 
+
     def LoadHook(self):
         if self.format == "ARW":
             rawImage: RawPy = rawpy.imread(self.path)
@@ -26,6 +27,21 @@ class BaseImage:
             return self._cache
 
         return self.LoadHook()
+
+    def _LoadDefault(self, useCache: bool = True):
+        if useCache and self._cache is not None:
+            return self._cache
+
+        return self._LoadHookDefault()
+
+    
+    def _LoadHookDefault(self):
+        if self.format == "ARW":
+            rawImage: RawPy = rawpy.imread(self.path)
+            return rawImage.raw_image_visible
+
+        else:
+            return imageio.imread(self.path)
 
 
 TBaseImage = TypeVar("TBaseImage", bound=BaseImage, covariant=True)
