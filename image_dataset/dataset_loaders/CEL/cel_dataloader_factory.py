@@ -36,9 +36,8 @@ class CELDataloaderFactory:
         inputFilter: DatasetFilterCallbackType = nopFilter,
         truthFilter: DatasetFilterCallbackType = nopFilter,
     ):
-        jsonDir = os.path.split(self._trainJSON)[0] + "/"
-        datasetLoader = CELDatasetLoader(jsonDir, inputFilter, truthFilter)
-        trainSet = datasetLoader.GetSet(self._trainJSON)
+        datasetLoader = CELDatasetLoader(self._trainJSON, inputFilter, truthFilter)
+        trainSet = datasetLoader.GetSet()
 
         trainDataset = ImageDataset(trainSet, transforms, cacheLimit=self._cacheLimit)
 
@@ -57,9 +56,8 @@ class CELDataloaderFactory:
         inputFilter: DatasetFilterCallbackType = nopFilter,
         truthFilter: DatasetFilterCallbackType = nopFilter,
     ):
-        jsonDir = os.path.split(self._testJSON)[0] + "/"
-        datasetLoader = CELDatasetLoader(jsonDir, inputFilter, truthFilter)
-        testSet = datasetLoader.GetSet(self._testJSON)
+        datasetLoader = CELDatasetLoader(self._testJSON, inputFilter, truthFilter)
+        testSet = datasetLoader.GetSet()
 
         testDataset = ImageDataset(testSet, transforms, cacheLimit=self._cacheLimit)
 
