@@ -146,25 +146,13 @@ class LightMap:
 
         return output
 
-
-    def Relight_Old(self,input):
-        channels = input.shape[0]
-        assert channels == self.channels, "Channel mistmach"
-
-        output = input.clone()
-
-        for channelIndex in range(channels):
-            output[channelIndex,:,:] = self._RelightChannel(input[channelIndex,:,:],self._map[:,channelIndex],self.maxwhite)
-
-        return output
-
     def Save(self,dir):
         file = open(dir,"wb")
         dill.dump(self,file)
         file.close()
 
     @classmethod
-    def Load(clse,dir):
+    def Load(clse,dir) -> "LightMap":
         file = open(dir,"rb")
         object = dill.load(file)
         file.close()
