@@ -197,7 +197,7 @@ class RawCELDatasetLoader(CELDatasetLoader):
         trainFilter: DatasetFilterCallbackType = nopFilter,
         truthFilter: DatasetFilterCallbackType = nopFilter,
     ) -> None:
-        CELDatasetLoader.__init__(path,trainFilter,truthFilter)
+        CELDatasetLoader.__init__(self,path,trainFilter,truthFilter)
 
     def _GeneratePairs(
         self,
