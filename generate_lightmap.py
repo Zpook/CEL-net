@@ -4,7 +4,7 @@ from typing import Dict
 import functools
 
 from lightmap import LightMap
-from util.common import RawHandleBlackLevels, BayerUnpack
+from util.common import RawHandleBlackLevels, BayerUnpack, RAW_WHITE_LEVEL
 from image_dataset.dataset_loaders.CEL import RawCELDatasetLoader, cel_filters
 
 INPUT_EXPOSURES = [0.1]
@@ -15,7 +15,7 @@ TRAIN_JSON: str = "./dataset/train.JSON"
 TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
 
 
-MAX_RELIGHT_LEVEL = 5000
+MAX_RELIGHT_LEVEL = RAW_WHITE_LEVEL
 
 
 FILTER_SCENARIOS =  [2001,2002,2003,2004,2005]
