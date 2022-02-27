@@ -40,6 +40,7 @@ def Run():
         input = torch.tensor(input.astype("int32"))
         truth = torch.tensor(truth.astype("int32"))
 
+        print("Processing " + set.trainList[0].path)
 
         lightmap.SampleImage(input,truth)
 
