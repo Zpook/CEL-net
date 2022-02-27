@@ -69,19 +69,13 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainingData: CELImage,
         truthData: CELImage,
     ):
-        rawTrain = trainingData.Load()
-        rawTrain = RawHandleBlackLevels(rawTrain)
-        rawTrain = BayerUnpack(rawTrain)
 
-        rawTruth = truthData._LoadDefault()
-        rawTruth = RawHandleBlackLevels(rawTruth)
-        rawTruth = BayerUnpack(rawTruth)
+        trainImage = RawHandleBlackLevels(trainImage)
 
-        map = LightMap.Load("./local/lightmap_0.1x1.bin")
+        lightmap = LightMap.Load("./local/lightmap_0.1x1.bin")
 
-        trainImage -= RAW_BLACK_LEVEL
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
-        trainImage = LightMap.Relight(trainImage)
+        trainImage = lightmap.Relight(trainImage)
         trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
 
         return [trainImage, truthImage]
