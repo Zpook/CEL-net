@@ -12,9 +12,6 @@ OUTPUT_EXPOSURES = [1]
 
 TRAIN_JSON: str = "./dataset/train.JSON"
 
-TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
-
-
 MAX_RELIGHT_LEVEL = RAW_WHITE_LEVEL
 
 
