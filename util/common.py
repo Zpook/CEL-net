@@ -29,7 +29,7 @@ def BayerUnpack(image):
     )
     return out
 
-def RawLevels(image):
+def RawHandleBlackLevels(image):
     image[image<512] = 512
     image = image - 512
     return image
@@ -70,11 +70,11 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         truthData: CELImage,
     ):
         rawTrain = trainingData.Load()
-        rawTrain = RawLevels(rawTrain)
+        rawTrain = RawHandleBlackLevels(rawTrain)
         rawTrain = BayerUnpack(rawTrain)
 
         rawTruth = truthData._LoadDefault()
-        rawTruth = RawLevels(rawTruth)
+        rawTruth = RawHandleBlackLevels(rawTruth)
         rawTruth = BayerUnpack(rawTruth)
 
         numChannels = rawTrain.shape[-1]

@@ -1,14 +1,16 @@
-import imp
 from typing import Dict
 import functools
 
 from lightmap import LightMap
-from image_dataset.dataset_loaders.CEL import CELImage, RawCELDatasetLoader, cel_filters
+from util.common import RawHandleBlackLevels
+from image_dataset.dataset_loaders.CEL import RawCELDatasetLoader, cel_filters
 
 INPUT_EXPOSURES = [0.1]
 OUTPUT_EXPOSURES = [10]
 
 TRAIN_JSON: str = "./dataset/train.JSON"
+
+TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
 
 
 MAX_RELIGHT_LEVEL = 5000
@@ -33,6 +35,8 @@ def Run():
 
     for set in sets:
         input, truth = set.GetPair()
+        input = RawHandleBlackLevels(input.Load())
+        truth = RawHandleBlackLevels(truth.Load())
         lightmap.SampleImage(input,truth)
 
     lightmap.Save("./local/lightmap.bin")
