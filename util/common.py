@@ -30,8 +30,8 @@ def BayerUnpack(image):
     return out
 
 def RawHandleBlackLevels(image):
-    image[image<512] = 512
-    image = image - 512
+    image[image<RAW_BLACK_LEVEL] = RAW_BLACK_LEVEL
+    image = image - RAW_BLACK_LEVEL
     return image
 
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
