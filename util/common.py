@@ -5,7 +5,7 @@ import numpy as np
 
 from image_dataset import dataset_transforms
 from image_dataset.dataset_loaders.CEL import CELImage
-from util.rawrelight import RawRelight
+from lightmap import LightMap
 
 RAW_BLACK_LEVEL = 512
 RAW_WHITE_LEVEL = 16383
@@ -77,15 +77,11 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         rawTruth = RawHandleBlackLevels(rawTruth)
         rawTruth = BayerUnpack(rawTruth)
 
-        numChannels = rawTrain.shape[-1]
-
-        for channel in range(numChannels):
-            map = RawRelight.GetLightmap(rawTrain[:,:,channel],rawTruth[:,:,channel],RAW_WHITE_LEVEL)
-            trainImage[channel,:,:] = RawRelight.Relight(trainImage[channel,:,:], map, RAW_WHITE_LEVEL)
+        map = LightMap.Load("./local/lightmap_0.1x1.bin")
 
         trainImage -= RAW_BLACK_LEVEL
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
-        trainImage = RawRelight.Relight(trainImage, map, RAW_WHITE_LEVEL)
+        trainImage = LightMap.Relight(trainImage)
         trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
 
         return [trainImage, truthImage]
