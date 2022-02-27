@@ -1,8 +1,10 @@
+import torch
+
 from typing import Dict
 import functools
 
 from lightmap import LightMap
-from util.common import RawHandleBlackLevels
+from util.common import RawHandleBlackLevels, BayerUnpack
 from image_dataset.dataset_loaders.CEL import RawCELDatasetLoader, cel_filters
 
 INPUT_EXPOSURES = [0.1]
@@ -35,8 +37,17 @@ def Run():
 
     for set in sets:
         input, truth = set.GetPair()
-        input = RawHandleBlackLevels(input.Load())
-        truth = RawHandleBlackLevels(truth.Load())
+
+        input = input.Load()
+        truth=truth.Load()
+
+        input = BayerUnpack(RawHandleBlackLevels(input)).transpose((2,0,1))
+        truth = BayerUnpack(RawHandleBlackLevels(truth)).transpose((2,0,1))
+
+        input = torch.tensor(input.astype("int32"))
+        truth = torch.tensor(truth.astype("int32"))
+
+
         lightmap.SampleImage(input,truth)
 
     lightmap.Save("./local/lightmap.bin")
