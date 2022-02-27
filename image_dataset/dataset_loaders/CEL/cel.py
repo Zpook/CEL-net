@@ -1,4 +1,5 @@
 import json
+from re import S
 import rawpy
 import os
 import numpy as np
@@ -121,7 +122,7 @@ class CELDatasetLoader(BaseDatasetLoader):
         trainFilter: DatasetFilterCallbackType = nopFilter,
         truthFilter: DatasetFilterCallbackType = nopFilter,
     ) -> None:
-        self._dir = path
+        self._metaFilePath = path
         self._trainFilter = trainFilter
         self._truthFilter = truthFilter
 
@@ -170,18 +171,63 @@ class CELDatasetLoader(BaseDatasetLoader):
 
         return pairs
 
-    def GetSet(self, metaFile: str):
+    def GetSet(self):
 
-        with open(metaFile, "r") as file:
+        with open(self._metaFilePath, "r") as file:
             imageDict = json.load(file)
 
-        trainImages = CELImage.FromJSON(self._dir, imageDict)
-        truthImages = CELImage.FromJSON(self._dir, imageDict)
+        metaFileDirectory = os.path.split(self._metaFilePath)[0] + "/"
+
+        trainImages = CELImage.FromJSON(metaFileDirectory, imageDict)
+        truthImages = CELImage.FromJSON(metaFileDirectory, imageDict)
 
         trainImages = self._trainFilter(trainImages)
         truthImages = self._truthFilter(truthImages)
 
         # associate truth and train with their respective filtered scenarios
         pairs = self._GeneratePairs(trainImages, truthImages)
+
+        return pairs
+
+
+class RawCELDatasetLoader(CELDatasetLoader):
+    def __init__(
+        self,
+        path: str,
+        trainFilter: DatasetFilterCallbackType = nopFilter,
+        truthFilter: DatasetFilterCallbackType = nopFilter,
+    ) -> None:
+        CELDatasetLoader.__init__(path,trainFilter,truthFilter)
+
+    def _GeneratePairs(
+        self,
+        trainList: List[CELImage],
+        truthList: List[CELImage],
+    ):
+
+        truthDict: Dict[int, List[CELImage]] = {}
+        trainDict: Dict[int, List[CELImage]] = {}
+        pairs: List[CELPair] = []
+
+        truthDict = self._GenerateScenarioDict(truthList)
+        trainDict = self._GenerateScenarioDict(trainList)
+
+        trainKeysToRemove = []
+        for scenario in trainDict.keys():
+            if scenario not in truthDict.keys():
+                trainKeysToRemove.append(scenario)
+
+        for key in trainKeysToRemove:
+            del trainDict[key]
+
+        for trainKey in trainDict:
+            trainInd = trainDict[trainKey]
+            truthInd = truthDict[trainKey]
+
+            for index, image in enumerate(truthInd):
+                truthInd[index] = image
+
+            newPair = CELPair(trainInd, truthInd)
+            pairs.append(newPair)
 
         return pairs
