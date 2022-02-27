@@ -9,3 +9,5 @@ opencv-python
 imageio
 lensfunpy
 exif
+joblib
+dill
