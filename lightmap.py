@@ -52,7 +52,7 @@ class LightMap:
             if indexes.sum() == 0:
                 continue
             
-            output[indexes] = (output[indexes] * lightmap[intensity]).to(torch.int)
+            output[indexes] = (output[indexes] * lightmap[intensity]).to(torch.float)
             output = output
 
         return output
