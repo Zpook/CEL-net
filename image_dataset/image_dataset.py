@@ -1,4 +1,3 @@
-from image_dataset.dataset_loaders.CEL.cel import CELImage
 import torch
 from torch.utils.data.dataset import Dataset
 from .dataset_loaders import BaseDatasetPair, BaseImage
