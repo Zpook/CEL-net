@@ -1,10 +1,5 @@
-import json
-from msilib.schema import IniFile
-import rawpy
 import os
 import glob
-import numpy as np
-from types import MethodType
 
 from image_dataset.dataset_loaders import (
     BaseDatasetLoader,
@@ -12,7 +7,7 @@ from image_dataset.dataset_loaders import (
     BaseImage,
 )
 
-from typing import Dict, List, Callable, Union
+from typing import List
 
 
 class DatasetImage(BaseImage):
@@ -55,7 +50,7 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
 
      self._dir = baseDir
      self._inputs = inFiles
-     self._truths = inFiles
+     self._truths = trueFiles
 
 
     @classmethod
@@ -63,7 +58,7 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
 
         out = []
         for image in imageList:
-            fullImageName = baseDir + fullImageName
+            fullImageName = baseDir + image
             out.append(fullImageName)
 
         return out
@@ -76,7 +71,7 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
     def _GeneratePairs(cls,inputs:List[DatasetImage],truths:List[DatasetImage]):
 
         pairs = []
-        for index in inputs.__len__():
+        for index in range(inputs.__len__()):
             input = inputs[index]
             truth = truths[index]
             newPair = DatasetPair(input,truth)
