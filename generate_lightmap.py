@@ -12,6 +12,8 @@ OUTPUT_EXPOSURES = [1]
 
 TRAIN_JSON: str = "./dataset/train.JSON"
 
+TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
+
 MAX_RELIGHT_LEVEL = RAW_WHITE_LEVEL
 
 
@@ -23,7 +25,7 @@ def Run():
     datasetLoader = RawCELDatasetLoader(TRAIN_JSON,inputExposuresFilter,truthExposuresFilter)
     sets = datasetLoader.GetSet()
 
-    lightmap = LightMap(MAX_RELIGHT_LEVEL,4,1)
+    lightmap = LightMap(MAX_RELIGHT_LEVEL,4,4,device="cuda:0")
 
     for set in sets:
         input, truth = set.GetPair()
