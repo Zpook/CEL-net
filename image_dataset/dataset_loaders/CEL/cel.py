@@ -1,5 +1,4 @@
 import json
-from re import S
 import rawpy
 import os
 import numpy as np
