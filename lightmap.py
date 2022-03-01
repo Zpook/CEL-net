@@ -27,7 +27,7 @@ class LightMap:
         input = input.to(self._device)
         truth = truth.to(self._device)
 
-        maxValue = np.min((input.max(),self.maxwhite))
+        maxValue = torch.minimum(input.max(),torch.tensor(self.maxwhite).to(self._device))
 
         for intensity in range(1, maxValue):
 
@@ -48,7 +48,7 @@ class LightMap:
         input=input.to(self._device)
         output = input.clone().to(self._device)
 
-        maxValue = np.min((input.max(),self.maxwhite))
+        maxValue = torch.minimum(input.max(),torch.tensor(self.maxwhite).to(self._device))
 
         for intensity in range(1, maxValue):
 
@@ -75,7 +75,7 @@ class LightMap:
         output = input.clone().to(self._device)
         truth = truth.to(self._device)
 
-        maxValue = np.min((input.max(),self.maxwhite))
+        maxValue = torch.minimum(input.max(),torch.tensor(self.maxwhite).to(self._device))
 
         for intensity in range(1, maxValue):
 
