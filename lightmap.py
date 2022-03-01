@@ -9,10 +9,11 @@ class LightMap:
     '''
     maxProcesses:int - set to -1 to use maximum available (maximum of 4)
     '''
-    def __init__(self, maxwhite: int, channels: int, maxProcesses:int = 1) -> None:
+    def __init__(self, maxwhite: int, channels: int, maxProcesses:int = 1, device:str="cpu") -> None:
         self.channels = channels
         self.maxwhite = maxwhite
         self._samples = []
+        self._device = torch.device(device)
 
         if maxProcesses >= 4 or maxProcesses == -1:
             maxProcesses = 4    
@@ -20,12 +21,15 @@ class LightMap:
 
         self._map = self._NewMap()
 
-    @classmethod
-    def _GetChannelMap(cls,input: torch.Tensor, truth: torch.Tensor, maxwhite:int):
+    def _GetChannelMap(self,input: torch.Tensor, truth: torch.Tensor):
         
-        map = torch.zeros((maxwhite))
+        map = torch.ones((self.maxwhite)).to(device=self._device)
+        input = input.to(self._device)
+        truth = truth.to(self._device)
 
-        for intensity in range(1, maxwhite):
+        maxValue = np.min((input.max(),self.maxwhite))
+
+        for intensity in range(1, maxValue):
             indexes = input == intensity
 
             if indexes.sum() == 0:
@@ -39,11 +43,13 @@ class LightMap:
 
         return map  
 
-    @classmethod
-    def _RelightChannel(self, input: torch.Tensor, lightmap: torch.Tensor, maxWhite: int):
-        output = input.clone()
+    def _RelightChannel(self, input: torch.Tensor, lightmap: torch.Tensor):
+        input=input.to(self._device)
+        output = input.clone().to(self._device)
 
-        for intensity in range(1, maxWhite):
+        maxValue = np.min((input.max(),self.maxwhite))
+
+        for intensity in range(1, maxValue):
             if lightmap[intensity] == 1:
                 continue
 
@@ -58,22 +64,24 @@ class LightMap:
         return output
 
     def _NewMap(self):
-        return torch.ones((self.maxwhite,self.channels))
+        return torch.ones((self.maxwhite,self.channels)).to(self._device)
 
 
-    @classmethod
-    def _RelightChannelByTruth(cls, input: torch.Tensor, truth: torch.Tensor, maxWhite: int):
+    def _RelightChannelByTruth(self, input: torch.Tensor, truth: torch.Tensor):
 
-        output = input.clone()
-        imageTrue = truth.clone()
+        input = input.to(self._device)
+        output = input.clone().to(self._device)
+        truth = truth.to(self._device)
 
-        for intensity in range(1, maxWhite):
+        maxValue = np.min((input.max(),self.maxwhite))
+
+        for intensity in range(1, maxValue):
             indexes = input == intensity
 
             if indexes.sum() == 0: 
                 continue
 
-            valuesTrue = imageTrue[indexes]
+            valuesTrue = truth[indexes]
             targetMeanValue = torch.mean(valuesTrue.to(torch.float))
 
             multiplier = targetMeanValue / intensity
@@ -90,7 +98,7 @@ class LightMap:
 
 
         newMap = self._NewMap()
-        results = Parallel(n_jobs=self._processCount)(delayed(self._GetChannelMap)(input[channelIndex,:,:],truth[channelIndex,:,:],self.maxwhite) for channelIndex in range(channels))
+        results = Parallel(n_jobs=self._processCount)(delayed(self._GetChannelMap)(input[channelIndex,:,:],truth[channelIndex,:,:]) for channelIndex in range(channels))
 
         for index in range(channels):
             newMap[:,index] = results[index]
@@ -139,7 +147,7 @@ class LightMap:
 
         output = input.clone()
 
-        results = Parallel(n_jobs=self._processCount)(delayed(self._RelightChannel)(input[channelIndex,:,:],self._map[:,channelIndex],self.maxwhite) for channelIndex in range(channels))
+        results = Parallel(n_jobs=self._processCount)(delayed(self._RelightChannel)(input[channelIndex,:,:],self._map[:,channelIndex]) for channelIndex in range(channels))
 
         for channelIndex in range(channels):
             output[channelIndex,:,:] = results[channelIndex]
