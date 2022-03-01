@@ -30,11 +30,12 @@ class LightMap:
         maxValue = np.min((input.max(),self.maxwhite))
 
         for intensity in range(1, maxValue):
-            indexes = input == intensity
 
-            if indexes.sum() == 0:
+            if intensity not in input:
                 map[intensity] = 1
                 continue
+
+            indexes = input == intensity
 
             valuesTrue = truth[indexes]
             targetMeanValue = torch.mean(valuesTrue.to(torch.float))
@@ -50,6 +51,7 @@ class LightMap:
         maxValue = np.min((input.max(),self.maxwhite))
 
         for intensity in range(1, maxValue):
+
             if lightmap[intensity] == 1:
                 continue
 
@@ -76,10 +78,11 @@ class LightMap:
         maxValue = np.min((input.max(),self.maxwhite))
 
         for intensity in range(1, maxValue):
-            indexes = input == intensity
 
-            if indexes.sum() == 0: 
+            if intensity not in input:
                 continue
+
+            indexes = input == intensity
 
             valuesTrue = truth[indexes]
             targetMeanValue = torch.mean(valuesTrue.to(torch.float))
