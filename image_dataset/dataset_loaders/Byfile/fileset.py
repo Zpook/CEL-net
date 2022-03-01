@@ -72,8 +72,8 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
 
         pairs = []
         for index in range(inputs.__len__()):
-            input = inputs[index]
-            truth = truths[index]
+            input = DatasetImage(inputs[index])
+            truth = DatasetImage(truths[index])
             newPair = DatasetPair(input,truth)
             pairs.append(newPair)
 
