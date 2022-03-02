@@ -74,6 +74,7 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainImage = RawHandleBlackLevels(trainImage)
 
         lightmap = LightMap.Load("./local/lightmap_0.1x10.bin")
+        lightmap.ToDevice(self.device)
 
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
         trainImage = lightmap.Relight(trainImage)
