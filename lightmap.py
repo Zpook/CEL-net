@@ -13,13 +13,14 @@ class LightMap:
         self.channels = channels
         self.maxwhite = maxwhite
         self._samples = []
-        self._device = torch.device(device)
+        self._map = self._NewMap()
 
         if maxProcesses >= 4 or maxProcesses == -1:
             maxProcesses = 4    
         self._processCount = maxProcesses
 
-        self._map = self._NewMap()
+        self.ToDevice(device)
+
 
     def _GetChannelMap(self,input: torch.Tensor, truth: torch.Tensor):
         
@@ -171,3 +172,7 @@ class LightMap:
 
     def ToDevice(self, device:str):
         self._device = torch.device(device)
+        self._map = self._map.to(device)
+
+        for index in self._samples.__len__():
+            self._samples[index] = self._samples[index].to(device)
