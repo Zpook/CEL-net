@@ -168,3 +168,6 @@ class LightMap:
         object = dill.load(file)
         file.close()
         return object
+
+    def ToDevice(self, device:str):
+        self._device = torch.device(device)

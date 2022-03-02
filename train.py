@@ -21,7 +21,7 @@ IMAGE_BPS: int = 16
 # can be a 2D tuple, make sure BOTH values are divisible by 16
 PATCH_SIZE: Union[Tuple[int], int] = 512
 
-DEVICE: str = "cuda:0"
+RELIGHT_DEVICE: str = "cuda:0"
 
 # fiddle with these if training seems oddly slow
 DATASET_WORKER_COUNT: int = 2
@@ -50,7 +50,7 @@ def Run():
 
     # construct image transformations
 
-    exposureNormTransform = common.NormByExposureTime(IMAGE_BPS)
+    exposureNormTransform = common.NormByExposureTime(IMAGE_BPS,RELIGHT_DEVICE)
 
     trainTransforms = transforms.Compose(
         [
