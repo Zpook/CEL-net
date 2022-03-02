@@ -174,5 +174,5 @@ class LightMap:
         self._device = torch.device(device)
         self._map = self._map.to(device)
 
-        for index in self._samples.__len__():
+        for index in range(self._samples.__len__()):
             self._samples[index] = self._samples[index].to(device)
