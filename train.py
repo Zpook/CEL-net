@@ -50,7 +50,7 @@ def Run():
 
     # construct image transformations
 
-    exposureNormTransform = common.NormByExposureTime(IMAGE_BPS,RELIGHT_DEVICE)
+    exposureNormTransform = common.NormByRelight(IMAGE_BPS,RELIGHT_DEVICE)
 
     trainTransforms = transforms.Compose(
         [

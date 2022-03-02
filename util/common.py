@@ -35,9 +35,8 @@ def RawHandleBlackLevels(image):
     return image
 
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
-    def __init__(self, truthImageBps: int, device:str):
+    def __init__(self, truthImageBps: int):
         self.truthImageBps: int = truthImageBps
-        self.device = device
 
     def _Apply(
         self,
@@ -59,8 +58,9 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
 
 
 class NormByRelight(dataset_transforms._PairMetaTransform):
-    def __init__(self, truthImageBps: int) -> None:
+    def __init__(self, truthImageBps: int, device:str) -> None:
         self.truthImageBps: int = truthImageBps
+        self.device = device
         super().__init__()
 
     def _Apply(
