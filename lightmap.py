@@ -13,6 +13,7 @@ class LightMap:
         self.channels = channels
         self.maxwhite = maxwhite
         self._samples = []
+        self._device = device
         self._map = self._NewMap()
 
         if maxProcesses >= 4 or maxProcesses == -1:
