@@ -1,11 +1,14 @@
 import os
 import glob
+from types import MethodType
 
 from image_dataset.dataset_loaders import (
     BaseDatasetLoader,
     BaseDatasetPair,
     BaseImage,
 )
+
+from image_dataset.dataset_loaders.CEL.cel import RAWImageLoadHook
 
 from typing import List
 
@@ -45,16 +48,17 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
         self,
         baseDir: str,
         inFiles: List[str],
-        trueFiles: List[str]
+        trueFiles: List[str],
+        truthRAW2RGB:bool = True
     ) -> None:
 
      self._dir = baseDir
      self._inputs = inFiles
      self._truths = trueFiles
+     self._applyTruthHood = truthRAW2RGB
 
 
-    @classmethod
-    def _GenerateFullNames(cls,baseDir:str,imageList:List[str]):
+    def _GenerateFullNames(self,baseDir:str,imageList:List[str]):
 
         out = []
         for image in imageList:
@@ -63,17 +67,17 @@ class DatasetLoaderByFiles(BaseDatasetLoader):
 
         return out
 
-    @classmethod
-    def _GrabImages(cls, path: str, imageFormat: str, imagePrefix: str = ""):
+    def _GrabImages(self, path: str, imageFormat: str, imagePrefix: str = ""):
         return glob.glob(path + imagePrefix + "*." + imageFormat)
 
-    @classmethod
-    def _GeneratePairs(cls,inputs:List[DatasetImage],truths:List[DatasetImage]):
+    def _GeneratePairs(self,inputs:List[DatasetImage],truths:List[DatasetImage]):
 
         pairs = []
         for index in range(inputs.__len__()):
             input = DatasetImage(inputs[index])
             truth = DatasetImage(truths[index])
+
+            truth.LoadHook = MethodType(RAWImageLoadHook, truth)
             newPair = DatasetPair(input,truth)
             pairs.append(newPair)
 

@@ -160,13 +160,14 @@ class LightMap:
 
     def Save(self,dir):
         file = open(dir,"wb")
-        dill.dump(self,file)
+        torch.save(self,file)
         file.close()
 
     @classmethod
-    def Load(clse,dir) -> "LightMap":
+    def Load(clse,dir,device="cpu") -> "LightMap":
         file = open(dir,"rb")
-        object = dill.load(file)
+        object = torch.load(file,map_location=device)
+        object.ToDevice(device)
         file.close()
         return object
 
