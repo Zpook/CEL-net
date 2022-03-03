@@ -12,8 +12,6 @@ OUTPUT_EXPOSURES = [1]
 
 TRAIN_JSON: str = "./dataset/train.JSON"
 
-TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
-
 MAX_RELIGHT_LEVEL = RAW_WHITE_LEVEL
 
 
@@ -43,7 +41,7 @@ def Run():
 
         lightmap.SampleImage(input,truth)
 
-    lightmap.Save("./local/lightmap_0.1x1.bin")
+    lightmap.Save("./local/lightmap_0.1x1.pt")
 
 
 
