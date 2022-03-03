@@ -10,6 +10,9 @@ dataset/*
 
 local/*
 !local/.gitkeep
+!local/lightmap_*
+!local/lightmap_*
+
 
 output/*
 !output/*/
