@@ -70,6 +70,8 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainingData: CELImage,
         truthData: CELImage,
     ):
+        
+        # TODO: PROTOTYPE CODE, redo before publish
         truthExp = truthData.exposure
         lightbin = None
         if int(truthExp) == 10:
