@@ -70,12 +70,23 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         trainingData: CELImage,
         truthData: CELImage,
     ):
+        truthExp = truthData.exposure
+        lightbin = None
+        if int(truthExp) == 10:
+            lightbin = "./local/lightmap_0.1x10.pt"
+        elif int(truthExp) == 5:
+            lightbin = "./local/lightmap_0.1x5.pt"
+        elif int(truthExp) == 1:
+            lightbin = "./local/lightmap_0.1x1.pt"
+        else:
+            raise Exception("Unexpected output exposure")
 
-        trainImage = RawHandleBlackLevels(trainImage)
 
-        lightmap = LightMap.Load("./local/lightmap_0.1x10.pt",self.device)
+        lightmap = LightMap.Load(lightbin,device=self.device)
 
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
+        trainImage = RawHandleBlackLevels(trainImage)
+
         trainImage = lightmap.Relight(trainImage)
         trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
         trainImage = trainImage.clamp(0, 1)
