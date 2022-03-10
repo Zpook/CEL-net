@@ -25,6 +25,7 @@ DEVICE: str = "cuda:0"
 RELIGHT_DEVICE: str = "cuda:0"
 
 # fiddle with these if training seems oddly slow
+# TODO Worker count does nothing, either remove this or fix the cuda thread bug
 DATASET_WORKER_COUNT: int = 2
 BATCH_COUNT = 2
 
