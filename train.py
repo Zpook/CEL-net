@@ -52,7 +52,8 @@ def Run():
 
     # construct image transformations
 
-    exposureNormTransform = common.NormByRelight(IMAGE_BPS,RELIGHT_DEVICE)
+    lightmapDict = common.GetLightmaps(RELIGHT_DEVICE)
+    exposureNormTransform = common.NormByRelight(lightmapDict,IMAGE_BPS)
 
     trainTransforms = transforms.Compose(
         [

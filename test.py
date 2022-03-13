@@ -32,6 +32,8 @@ PATCH_SIZE: Union[Tuple[int], int] = 512
 # if GPU has insufficient memory (will result in crashes), switch DEVICE to "cpu"
 #  make sure you have enoguh RAM available if you do, especially if you cache images
 DEVICE: str = "cuda:0"
+RELIGHT_DEVICE: str = "cuda:0"
+
 
 # Maximum memory allowed to be used in megabytes. Approx 80-60 gigabytes is ideal
 # If you are running just one test (decided by number of items in TUNE_FACTORS), set this to 0.
@@ -146,7 +148,8 @@ def GetSaveImagesCallback(
 
 def Run():
 
-    exposureNormTransform = common.NormByRelight(IMAGE_BPS)
+    lightmapDict = common.GetLightmaps(RELIGHT_DEVICE)
+    exposureNormTransform = common.NormByRelight(lightmapDict,IMAGE_BPS)
 
     testTransforms = transforms.Compose(
         [

@@ -1,4 +1,4 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 
 from torchvision import transforms
 import numpy as np
@@ -9,6 +9,17 @@ from lightmap import LightMap
 
 RAW_BLACK_LEVEL = 512
 RAW_WHITE_LEVEL = 16383
+
+def GetLightmaps(device):
+
+    lightmapDict:Dict[float,LightMap] = {}
+
+    lightmapDict[10] = LightMap.Load("./local/lightmap_0.1x10.pt",device=device)
+    lightmapDict[5] = LightMap.Load("./local/lightmap_0.1x5.pt",device=device)
+    lightmapDict[1] = LightMap.Load("./local/lightmap_0.1x1.pt",device=device)
+
+    return lightmapDict
+
 
 
 def BayerUnpack(image):
@@ -35,7 +46,7 @@ def RawHandleBlackLevels(image):
     return image
 
 class NormByExposureTime(dataset_transforms._PairMetaTransform):
-    def __init__(self, truthImageBps: int):
+    def __init__(self,truthImageBps: int):
         self.truthImageBps: int = truthImageBps
 
     def _Apply(
@@ -58,9 +69,9 @@ class NormByExposureTime(dataset_transforms._PairMetaTransform):
 
 
 class NormByRelight(dataset_transforms._PairMetaTransform):
-    def __init__(self, truthImageBps: int, device:str) -> None:
+    def __init__(self, lightmaps:Dict[float,LightMap],truthImageBps: int) -> None:
+        self.lightmaps = lightmaps
         self.truthImageBps: int = truthImageBps
-        self.device = device
         super().__init__()
 
     def _Apply(
@@ -71,20 +82,8 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
         truthData: CELImage,
     ):
         
-        # TODO: PROTOTYPE CODE, redo before publish
         truthExp = truthData.exposure
-        lightbin = None
-        if int(truthExp) == 10:
-            lightbin = "./local/lightmap_0.1x10.pt"
-        elif int(truthExp) == 5:
-            lightbin = "./local/lightmap_0.1x5.pt"
-        elif int(truthExp) == 1:
-            lightbin = "./local/lightmap_0.1x1.pt"
-        else:
-            raise Exception("Unexpected output exposure")
-
-
-        lightmap = LightMap.Load(lightbin,device=self.device)
+        lightmap = self.lightmaps[truthExp]
 
         truthImage = truthImage / float(2 ** self.truthImageBps - 1)
         trainImage = RawHandleBlackLevels(trainImage)
@@ -101,12 +100,12 @@ def GetTrainTransforms(
 
     transform = transforms.Compose(
         [
+            dataset_transforms.ToTensor(),
+            dataset_transforms.ToDevice(device),
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
             dataset_transforms.RandomCropRAWandRGB(patchSize),
             dataset_transforms.RandomFlip(),
-            dataset_transforms.ToTensor(),
             dataset_transforms.Permute(2, 0, 1),
-            dataset_transforms.ToDevice(device),
         ]
     )
 
@@ -137,11 +136,11 @@ def GetEvalTransforms(
 
     transform = transforms.Compose(
         [
+            dataset_transforms.ToTensor(),
+            dataset_transforms.ToDevice(device),
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
             dataset_transforms.CenterCropRAWandRGB(patchSize),
-            dataset_transforms.ToTensor(),
             dataset_transforms.Permute(2, 0, 1),
-            dataset_transforms.ToDevice(device),
         ]
     )
 

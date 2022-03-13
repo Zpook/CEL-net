@@ -232,11 +232,19 @@ class RandomFlip(_PairTransform):
 
     def _Apply(self, image, gtruth):
 
-        randint = np.random.randint(0, 2)
+        flipX = np.random.randint(0, 2)
+        flipY = np.random.randint(0, 2)
 
-        if randint > 0:
-            image = np.flip(image, axis=randint)
-            gtruth = np.flip(gtruth, axis=randint)
+        flipDims =[]
+        if flipX:
+            flipDims.append(1)
+        if flipY:
+            flipDims.append(0)
+
+        if flipDims.__len__() > 0:
+            image = torch.flip(image, dims=flipDims)
+            gtruth = torch.flip(gtruth, dims=flipDims)
+
 
         return [image, gtruth]
 
@@ -298,19 +306,19 @@ class BayerUnpack(_PairTransform_Conditional):
 
     def _Apply(self, image):
         # pack Bayer image to 4 channels
-        image = np.expand_dims(image, axis=2)
+        image = image.unsqueeze(2)
         img_shape = image.shape
         H = img_shape[0]
         W = img_shape[1]
 
-        out = np.concatenate(
+        out = torch.cat(
             (
                 image[0:H:2, 0:W:2, :],
                 image[0:H:2, 1:W:2, :],
                 image[1:H:2, 1:W:2, :],
                 image[1:H:2, 0:W:2, :],
             ),
-            axis=2,
+            dim=2,
         )
         return out
 
