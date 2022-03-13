@@ -101,11 +101,11 @@ def GetTrainTransforms(
     transform = transforms.Compose(
         [
             dataset_transforms.ToTensor(),
-            dataset_transforms.ToDevice(device),
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
             dataset_transforms.RandomCropRAWandRGB(patchSize),
             dataset_transforms.RandomFlip(),
             dataset_transforms.Permute(2, 0, 1),
+            dataset_transforms.ToDevice(device),
         ]
     )
 
@@ -137,10 +137,10 @@ def GetEvalTransforms(
     transform = transforms.Compose(
         [
             dataset_transforms.ToTensor(),
-            dataset_transforms.ToDevice(device),
             dataset_transforms.BayerUnpack(applyTrain=True, applyTruth=False),
             dataset_transforms.CenterCropRAWandRGB(patchSize),
             dataset_transforms.Permute(2, 0, 1),
+            dataset_transforms.ToDevice(device),
         ]
     )
 
