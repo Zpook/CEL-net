@@ -21,12 +21,14 @@ IMAGE_BPS: int = 16
 # can be a 2D tuple, make sure BOTH values are divisible by 16
 PATCH_SIZE: Union[Tuple[int], int] = 512
 
-DEVICE: str = "cuda:0"
-RELIGHT_DEVICE: str = "cuda:0"
+MODEL_DEVICE: str = "cuda:0"
+
+RELIGHT_DEVICE: str = "cpu"
+RELIGHT_WORKER_COUNT: int = 4
 
 # fiddle with these if training seems oddly slow
 # TODO Worker count does nothing, either remove this or fix the cuda thread bug
-DATASET_WORKER_COUNT: int = 2
+DATASET_WORKER_COUNT: int = 0
 BATCH_COUNT = 2
 
 # Maximum RAM allowed to be used in megabytes. Approx 80-60 gigabytes is optimal
@@ -58,7 +60,7 @@ def Run():
     trainTransforms = transforms.Compose(
         [
             common.GetTrainTransforms(
-                IMAGE_BPS, PATCH_SIZE, normalize=False, device=DEVICE
+                IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
             ),
             exposureNormTransform,
         ]
@@ -73,12 +75,12 @@ def Run():
     tuneTruthFilter = functools.partial(cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE)
 
     dataloaderFactory = CELDataloaderFactory(
-        TRAIN_JSON,TEST_JSON, batch=BATCH_COUNT, cacheLimit=IMAGE_CACHE_SIZE_MAX,
+        TRAIN_JSON,TEST_JSON,patchSize=PATCH_SIZE,datasetWorkers=DATASET_WORKER_COUNT, batch=BATCH_COUNT, cacheLimit=IMAGE_CACHE_SIZE_MAX,
     )
 
     network = CELNet(adaptive=False)
     optimiser = optim.Adam(network.parameters(), lr=1e-4)
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
+    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
         network._initialize_weights()
@@ -118,7 +120,7 @@ def Run():
     optimParams = network.TuningMode()
 
     optimiser = optim.Adam(optimParams, lr=1e-4)
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
+    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
     wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
