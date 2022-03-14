@@ -23,8 +23,10 @@ PATCH_SIZE: Union[Tuple[int], int] = 512
 
 MODEL_DEVICE: str = "cuda:0"
 
+# Consider moving relight to GPU or increasing worker count on larger patches
+# There is a considerable slow-down in performance if both are applied on smaller patches
 RELIGHT_DEVICE: str = "cpu"
-RELIGHT_WORKER_COUNT: int = 4
+RELIGHT_WORKER_COUNT: int = 1
 
 # fiddle with these if training seems oddly slow
 # TODO Worker count does nothing, either remove this or fix the cuda thread bug
