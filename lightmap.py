@@ -12,8 +12,12 @@ class LightMap:
     def __init__(self, maxwhite: int, channels: int, maxProcesses:int = 1, device:str="cpu") -> None:
         self.channels = channels
         self.maxwhite = maxwhite
-        self._samples = []
         self._device = device
+
+        self._samples = []
+        self._samplesMetadata = {}
+        self._unindexedImageCount = 0
+
         self._map = self._NewMap()
 
         if maxProcesses >= 4 or maxProcesses == -1:
@@ -135,16 +139,38 @@ class LightMap:
 
         self._map = newMap
 
-    def SampleImage(self, input: torch.Tensor, truth: torch.Tensor):
+    def SampleImage(self, input: torch.Tensor, truth: torch.Tensor,index:int = None,metadata:dict = None):
         
         sampleMap = self.GetImageMap(input,truth)
-        self.AddSample(sampleMap)
+        self.AddSample(sampleMap,index,metadata)
         self._GenerateAverageMap()
 
-    def AddSample(self,sample:np.ndarray):
+    def AddSample(self,sample:np.ndarray, imageIndex:int = None, metadata:dict = None):
         assert sample.shape == (self.maxwhite,self.channels), "Dimension Mistmach"
-        self._samples.append(sample)
+
+        imageMeta = {}
+        imageSampleIndex = None
+
+        # overwrite previous sample
+        if imageIndex != None and imageIndex in self._samplesMetadata.keys():
+            imageMeta = self._samplesMetadata[imageIndex]
+            imageSampleIndex = self._samplesMetadata[imageIndex]["samples_array_index"]
+            self._samples[imageSampleIndex] = sample
+
+        # new sample
+        else:
+            self._samples.append(sample)
+            imageSampleIndex = self._samples.__len__()-1
         
+        imageMeta["samples_array_index"] = imageSampleIndex
+        if metadata != None:
+            imageMeta["meta"] = metadata
+
+        if imageIndex == None:
+            imageIndex = "unindexed_" + self._unindexedImageCount.__str__()
+            self._unindexedImageCount += 1
+
+        self._samplesMetadata[imageIndex] = imageMeta
 
     def Relight(self,input):
         channels = input.shape[0]

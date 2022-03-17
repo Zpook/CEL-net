@@ -28,6 +28,14 @@ def Run():
     for set in sets:
         input, truth = set.GetPair()
 
+        meta = {}
+        scenario = input.scenario
+
+        meta["scenario"] = scenario
+        meta["in_exposure"] = input.exposure
+        meta["out_exposure"] = truth.exposure
+        meta["location"] = input.location
+
         input = input.Load()
         truth=truth.Load()
 
@@ -39,7 +47,8 @@ def Run():
 
         print("Processing " + set.trainList[0].path)
 
-        lightmap.SampleImage(input,truth)
+        lightmap.SampleImage(input,truth,scenario,meta)
+
 
     lightmap.Save("./local/lightmap_0.1x1.pt")
 
