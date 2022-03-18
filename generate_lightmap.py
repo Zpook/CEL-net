@@ -35,6 +35,9 @@ def Run():
         meta["in_exposure"] = input.exposure
         meta["out_exposure"] = truth.exposure
         meta["location"] = input.location
+        meta["in_iso"] = input.iso
+        meta["out_iso"] = input.iso
+
 
         input = input.Load()
         truth=truth.Load()
