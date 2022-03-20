@@ -23,7 +23,7 @@ def Run():
     datasetLoader = RawCELDatasetLoader(TRAIN_JSON,inputExposuresFilter,truthExposuresFilter)
     sets = datasetLoader.GetSet()
 
-    lightmap = LightMap(MAX_RELIGHT_LEVEL,4,4,device="cuda:0")
+    lightmap = LightMap(MAX_RELIGHT_LEVEL,4,2,device="cuda:0")
 
     for set in sets:
         input, truth = set.GetPair()
