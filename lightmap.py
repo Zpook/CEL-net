@@ -172,13 +172,16 @@ class LightMap:
 
         self._samplesMetadata[imageIndex] = imageMeta
 
-    def Relight(self,input):
+    def Relight(self,input,map = None):
         channels = input.shape[0]
         assert channels == self.channels, "Channel mistmach"
 
+        if map is None:
+            map = self._map
+
         output = input.clone()
 
-        results = Parallel(n_jobs=self._processCount)(delayed(self._RelightChannel)(input[channelIndex,:,:],self._map[:,channelIndex]) for channelIndex in range(channels))
+        results = Parallel(n_jobs=self._processCount)(delayed(self._RelightChannel)(input[channelIndex,:,:],map[:,channelIndex]) for channelIndex in range(channels))
 
         for channelIndex in range(channels):
             output[channelIndex,:,:] = results[channelIndex]
