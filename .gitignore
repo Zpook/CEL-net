@@ -14,9 +14,7 @@ local/*
 
 
 output/*
-!output/*/
 !output/.gitkeep
-
 output/undistorted/*
 !output/undistorted/.gitkeep
 
