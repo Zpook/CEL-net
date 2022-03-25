@@ -115,7 +115,7 @@ class LightMap:
         return newMap
 
 
-    def _GenerateAverageMap(self):
+    def GenerateAverageMap(self):
         
         newMap = self._NewMap()
         meanMap = self._NewMap() - 1
@@ -143,7 +143,6 @@ class LightMap:
         
         sampleMap = self.GetImageMap(input,truth)
         self.AddSample(sampleMap,index,metadata)
-        self._GenerateAverageMap()
 
     def AddSample(self,sample:np.ndarray, imageIndex:int = None, metadata:dict = None):
         assert sample.shape == (self.maxwhite,self.channels), "Dimension Mistmach"
