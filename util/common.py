@@ -98,6 +98,37 @@ class NormByRelight(dataset_transforms._PairMetaTransform):
 
         return [trainImage, truthImage]
 
+class NormByRelight_Local(dataset_transforms._PairMetaTransform):
+    def __init__(self, lightmaps:Dict[float,LightMap],truthImageBps: int) -> None:
+        self.lightmaps = lightmaps
+        self.truthImageBps: int = truthImageBps
+        super().__init__()
+
+    def _Apply(
+        self,
+        trainImage: np.ndarray,
+        truthImage: np.ndarray,
+        trainingData: CELImage,
+        truthData: CELImage,
+    ):
+        
+        truthExp = truthData.exposure
+        lightmap = self.lightmaps[truthExp]
+
+        truthImage = truthImage / float(2 ** self.truthImageBps - 1)
+        trainImage = RawHandleBlackLevels(trainImage)
+
+        scenario = trainingData.scenario
+        sampleArrayIndex = lightmap._samplesMetadata[scenario]["samples_array_index"]
+        localMap = lightmap._samples[sampleArrayIndex]
+        trainImage = lightmap.Relight(trainImage,localMap)
+
+
+        trainImage /= (RAW_WHITE_LEVEL-RAW_BLACK_LEVEL)
+        trainImage = trainImage.clamp(0, 1)
+
+        return [trainImage, truthImage]
+
 def GetTrainTransforms(
     rgbBps: float, patchSize: Union[Tuple[int], int], normalize: bool, device: str
 ):
