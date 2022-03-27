@@ -137,7 +137,7 @@ def Run():
     )
 
     network = CELNet(adaptive=False)
-    optimiser = optim.Adam(network.parameters(), lr=LR_TRAIN[0])
+    optimiser = optim.Adam(network.parameters(), lr=LR_TRAIN[1])
     wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
@@ -160,13 +160,13 @@ def Run():
         )
 
         wrapper.Train(
-            trainDataloader, trainToEpoch=EPOCHS_TRAIN[0], learningRate=LR_TRAIN[0]
-        )
-        wrapper.Train(
             trainDataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
         )
         wrapper.Train(
             trainDataloader, trainToEpoch=EPOCHS_TRAIN[2], learningRate=LR_TRAIN[2]
+        )
+        wrapper.Train(
+            trainDataloader, trainToEpoch=EPOCHS_TRAIN[3], learningRate=LR_TRAIN[3]
         )
 
         # free up memory
@@ -189,8 +189,8 @@ def Run():
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
 
-    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[0], learningRate=LR_TUNE[0])
     wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
+    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
 
 
 if __name__ == "__main__":
