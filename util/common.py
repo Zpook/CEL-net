@@ -14,9 +14,9 @@ def GetLightmaps(device, workerCount:int=1):
 
     lightmapDict:Dict[float,LightMap] = {}
 
-    lightmapDict[10] = LightMap.Load("./local/lightmap_0.1x10.pt",device=device)
-    lightmapDict[5] = LightMap.Load("./local/lightmap_0.1x5.pt",device=device)
-    lightmapDict[1] = LightMap.Load("./local/lightmap_0.1x1.pt",device=device)
+    lightmapDict[10] = LightMap.Load("./local/lightmap_full_0.1x10.pt",device=device)
+    lightmapDict[5] = LightMap.Load("./local/lightmap_full_0.1x5.pt",device=device)
+    lightmapDict[1] = LightMap.Load("./local/lightmap_full_0.1x1.pt",device=device)
 
     lightmapDict[10]._processCount = workerCount
     lightmapDict[5]._processCount = workerCount
