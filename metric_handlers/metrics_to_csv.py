@@ -1,7 +1,7 @@
 from metric_handlers import Metric
 from typing import Dict, List
 
-from util.csv_writer_wrapper import CSVWriterWrapper
+from util.csv_wrapper import CSVWrapper
 
 
 class MetricsToCsv:
@@ -50,6 +50,6 @@ class MetricsToCsv:
                 else:
                     currDict[metric.name] = ""
 
-        csvSaver = CSVWriterWrapper(self._fileDir, self._fieldNames)
+        csvSaver = CSVWrapper(self._fileDir, self._fieldNames)
         csvSaver.SaveRows(dictList)
         csvSaver.Close()
