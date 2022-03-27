@@ -41,6 +41,21 @@ TEST_JSON: str = "./dataset/test.JSON"
 
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
+EPOCHS_TRAIN = {
+    1: 400,
+    2: 800,
+    3: 1000,
+}
+
+LR_TRAIN = {1: 1e-4, 2: 0.5 * 1e-4, 3: 0.25 * 1e-4}
+
+EPOCHS_TUNE = {
+    1: 1400,
+    2: 1700,
+}
+
+LR_TUNE = {1: 1e-4, 2: 0.25 * 1e-4}
+
 # --- Dataset Filtering ---
 
 # train inputs
@@ -51,13 +66,17 @@ TRAIN_TRUTH_EXPOSURE: List[float] = [1]
 TUNE_INPUT_EXPOSURE: List[float] = [0.1]
 TUNE_TRUTH_EXPOSURE: List[float] = [10]
 
+# whitelisting scenarios will use ONLY selected scenarios, useful for overfitting
+WHITELIST_SCENARIOS = []
+BLACKLIST_SCENARIOS = []
+
 
 def Run():
 
     # construct image transformations
 
-    lightmapDict = common.GetLightmaps(RELIGHT_DEVICE,RELIGHT_WORKER_COUNT)
-    exposureNormTransform = common.NormByRelight(lightmapDict,IMAGE_BPS)
+    lightmapDict = common.GetLightmaps(RELIGHT_DEVICE, RELIGHT_WORKER_COUNT)
+    exposureNormTransform = common.NormByRelight_Local(lightmapDict, IMAGE_BPS)
 
     trainTransforms = transforms.Compose(
         [
@@ -70,18 +89,50 @@ def Run():
 
     # construct filters to sort database
 
-    trainInputFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_INPUT_EXPOSURE)
-    trainTruthFilter = functools.partial(cel_filters.FilterExactInList, TRAIN_TRUTH_EXPOSURE)
+    train_input_filter = functools.partial(
+        cel_filters.Exposures_Whitelist, TRAIN_INPUT_EXPOSURE
+    )
+    train_truth_filter = functools.partial(
+        cel_filters.Exposures_Whitelist, TRAIN_TRUTH_EXPOSURE
+    )
 
-    tuneInputFilter = functools.partial(cel_filters.FilterExactInList, TUNE_INPUT_EXPOSURE)
-    tuneTruthFilter = functools.partial(cel_filters.FilterExactInList, TUNE_TRUTH_EXPOSURE)
+    tune_input_filter = functools.partial(
+        cel_filters.Exposures_Whitelist, TUNE_INPUT_EXPOSURE
+    )
+    tune_truth_filter = functools.partial(
+        cel_filters.Exposures_Whitelist, TUNE_TRUTH_EXPOSURE
+    )
+
+    if WHITELIST_SCENARIOS.__len__()!= 0:
+        whitelist_filter = functools.partial(cel_filters.Scenario_Whitelist, WHITELIST_SCENARIOS)
+
+        train_input_filter = functools.partial(cel_filters.Chain, [train_input_filter,whitelist_filter])
+        train_truth_filter = functools.partial(cel_filters.Chain, [train_truth_filter,whitelist_filter])
+        
+        tune_input_filter = functools.partial(cel_filters.Chain, [tune_input_filter,whitelist_filter])
+        tune_truth_filter = functools.partial(cel_filters.Chain, [tune_truth_filter,whitelist_filter])
+
+    if BLACKLIST_SCENARIOS.__len__()!= 0:
+        blacklist_filter = functools.partial(cel_filters.Scenario_Whitelist, BLACKLIST_SCENARIOS)
+
+        train_input_filter = functools.partial(cel_filters.Chain, [train_input_filter,blacklist_filter])
+        train_truth_filter = functools.partial(cel_filters.Chain, [train_truth_filter,blacklist_filter])
+        
+        tune_input_filter = functools.partial(cel_filters.Chain, [tune_input_filter,blacklist_filter])
+        tune_truth_filter = functools.partial(cel_filters.Chain, [tune_truth_filter,blacklist_filter])
+
 
     dataloaderFactory = CELDataloaderFactory(
-        TRAIN_JSON,TEST_JSON,patchSize=PATCH_SIZE,datasetWorkers=DATASET_WORKER_COUNT, batch=BATCH_COUNT, cacheLimit=IMAGE_CACHE_SIZE_MAX,
+        TRAIN_JSON,
+        TEST_JSON,
+        patchSize=PATCH_SIZE,
+        datasetWorkers=DATASET_WORKER_COUNT,
+        batch=BATCH_COUNT,
+        cacheLimit=IMAGE_CACHE_SIZE_MAX,
     )
 
     network = CELNet(adaptive=False)
-    optimiser = optim.Adam(network.parameters(), lr=1e-4)
+    optimiser = optim.Adam(network.parameters(), lr=LR_TRAIN[0])
     wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
@@ -90,23 +141,29 @@ def Run():
         wrapper.Save(WEIGHTS_DIRECTORY)
 
     checkpoint = torch.load(WEIGHTS_DIRECTORY)
-    isModelInTuneState = checkpoint["META"]["model_tune_state"]
+    model_tune_flag = checkpoint["META"]["model_tune_state"]
     del checkpoint
 
-    if not isModelInTuneState:
+    if not model_tune_flag:
 
         wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
 
         wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
         trainDataloader = dataloaderFactory.GetTrain(
-            trainTransforms, trainInputFilter, trainTruthFilter
+            trainTransforms, train_input_filter, train_truth_filter
         )
 
-        wrapper.Train(trainDataloader, trainToEpoch=400, learningRate=1e-4)
-        wrapper.Train(trainDataloader, trainToEpoch=800, learningRate=0.5 * 1e-4)
-        wrapper.Train(trainDataloader, trainToEpoch=1000, learningRate=0.25 * 1e-4)
-   
+        wrapper.Train(
+            trainDataloader, trainToEpoch=EPOCHS_TRAIN[0], learningRate=LR_TRAIN[0]
+        )
+        wrapper.Train(
+            trainDataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
+        )
+        wrapper.Train(
+            trainDataloader, trainToEpoch=EPOCHS_TRAIN[2], learningRate=LR_TRAIN[2]
+        )
+
         # free up memory
         del trainDataloader
 
@@ -115,23 +172,24 @@ def Run():
 
     # tuning starts here, rebuild everything
     tuneDataloader = dataloaderFactory.GetTrain(
-        trainTransforms, tuneInputFilter, tuneTruthFilter
+        trainTransforms, tune_input_filter, tune_truth_filter
     )
 
     network = CELNet(adaptive=True)
     optimParams = network.TuningMode()
 
-    optimiser = optim.Adam(optimParams, lr=1e-4)
+    optimiser = optim.Adam(optimParams, lr=LR_TUNE[0])
     wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
     wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
 
-    wrapper.Train(tuneDataloader, trainToEpoch=1400, learningRate=1e-4)
-    wrapper.Train(tuneDataloader, trainToEpoch=1700, learningRate=0.5 * 1e-4)
+    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[0], learningRate=LR_TUNE[0])
+    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
 
 
 if __name__ == "__main__":
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    torch.multiprocessing.set_start_method("spawn")
     Run()
