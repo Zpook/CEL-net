@@ -9,16 +9,92 @@ import torch.utils.data
 from torch import optim
 import functools
 from torchvision import transforms
+import imageio
+import numpy as np
+import metric_handlers
 
 import util.common as common
 from util.model_wrapper import ModelWrapper
 from networks import CELNet
-from image_dataset.dataset_loaders.CEL import CELDataloaderFactory, cel_filters
+from image_dataset.dataset_loaders.CEL import CELDataloaderFactory, cel_filters, CELImage
+
+
+def GetValidationCallback(wrapper: ModelWrapper,dataloader,validationRate:int,savedir):
+
+    def Callback(
+        inputImage: torch.Tensor,
+        gTruthImage: torch.Tensor,
+        unetOutput: torch.Tensor,
+        inputMeta: CELImage,
+        gtruthMeta: CELImage,
+        loss: float,
+    ):
+
+        imageNumber = imageNumberMetric.data.__len__()
+        imageNumberMetric.Call(imageNumber)
+
+        gtruthProcessed = gTruthImage[0].permute(1, 2, 0).cpu().data.numpy()
+        unetOutputProcessed = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
+
+        unetOutputProcessed = np.minimum(np.maximum(unetOutputProcessed, 0), 1)
+
+        PSNR.Call(
+            (gtruthProcessed * 255).astype("uint8"),
+            (unetOutputProcessed * 255).astype("uint8"),
+        )
+        SSIM.Call(
+            (gtruthProcessed * 255).astype("uint8"),
+            (unetOutputProcessed * 255).astype("uint8"),
+        )
+
+        return Callback
+
+    def GetValidationIterCallback(savedir: str, scenarioIndex:int,PSNR: metric_handlers.PSNR, SSIM: metric_handlers.SSIM):
+
+        def OnValidationIter(
+            inputImage: torch.Tensor,
+            gTruthImage: torch.Tensor,
+            unetOutput: torch.Tensor,
+            inputMeta: List[CELImage],
+            gtruthMeta: List[CELImage],
+            loss: float,
+        ):
+
+            imname = (
+                + "scenario_"
+                + inputMeta[0].scenario.__str__()
+            )
+            imdir = savedir + "/" + imname + ".jpg"
+
+            convertedImage = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
+            convertedImage = np.minimum(np.maximum(convertedImage, 0), 1)
+
+            convertedImage *= 255
+            convertedImage = convertedImage.astype(np.uint8)
+
+            imageio.imwrite(imdir, convertedImage, "jpg")
+
+        return OnValidationIter
+
+    def Callback(
+        epochIndex:int
+    ):
+        if (epochIndex % validationRate) != 0:
+            return
+
+        # wrapper.OnTestIter +=
+        wrapper.Test(dataloader)
+        
+
+
+    return Callback
+
+
 
 # --- General Settings ---
 
-IMAGE_BPS: int = 16
-# can be a 2D tuple, make sure BOTH values are divisible by 16
+TRUTH_IMAGE_BPS: int = 16
+# can be a 2D tuple, make sure both values are divisible by 16
 PATCH_SIZE: Union[Tuple[int], int] = 512
 
 MODEL_DEVICE: str = "cuda:0"
@@ -29,7 +105,7 @@ RELIGHT_DEVICE: str = "cpu"
 RELIGHT_WORKER_COUNT: int = 1
 
 # fiddle with these if training seems oddly slow
-# TODO Worker count does nothing, either remove this or fix the cuda thread bug
+# ! Worker count is currently bugged !
 DATASET_WORKER_COUNT: int = 0
 BATCH_COUNT = 2
 
@@ -45,6 +121,8 @@ TEST_JSON: str = "/media/mikel/New040Volume/WORK/dataset/test.JSON"
 
 
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
+
+VALIDATION_RATE = 50
 
 EPOCHS_TRAIN = {
     1: 400,
@@ -81,12 +159,12 @@ def Run():
     # construct image transformations
 
     lightmapDict = common.GetLightmaps(RELIGHT_DEVICE, RELIGHT_WORKER_COUNT)
-    exposureNormTransform = common.NormByRelight_Local(lightmapDict, IMAGE_BPS)
+    exposureNormTransform = common.NormByRelight_Local(lightmapDict, TRUTH_IMAGE_BPS)
 
     trainTransforms = transforms.Compose(
         [
             common.GetTrainTransforms(
-                IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
+                TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
             ),
             exposureNormTransform,
         ]
@@ -152,6 +230,8 @@ def Run():
     if not model_tune_flag:
 
         wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+        wrapper.OnTrainEpoch += GetValidationCallback
+
 
         wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
@@ -176,6 +256,7 @@ def Run():
         wrapper.Save(WEIGHTS_DIRECTORY)
 
     # tuning starts here, rebuild everything
+    # TODO: this is blatant copy-past code
     tuneDataloader = dataloaderFactory.GetTrain(
         trainTransforms, tune_input_filter, tune_truth_filter
     )
@@ -188,6 +269,7 @@ def Run():
     wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+    wrapper.OnTrainEpoch += GetValidationCallback
 
     wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
     wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])

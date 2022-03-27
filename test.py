@@ -25,8 +25,8 @@ import util.common as common
 
 # --- General Settings ---
 
-IMAGE_BPS: int = 16
-# can be a 2D tuple, make sure BOTH values are divisible by 16
+TRUTH_IMAGE_BPS: int = 16
+# can be a 2D tuple, make sure both values are divisible by 16
 # PATCH_SIZE = (2000,3008) # the maximum for our dataset. You'll probably need to use CPU for this, and around 40+ GB of RAM
 PATCH_SIZE: Union[Tuple[int], int] = 512
 # if GPU has insufficient memory (will result in crashes), switch DEVICE to "cpu"
@@ -51,25 +51,24 @@ TEST_JSON: str = "/media/mikel/New040Volume/WORK/dataset/test.JSON"
 
 TUNE_FACTORS = [0.5]
 
-# Write an output image every SAVE_IMAGE_RATE input images
+# Rate at which to save output images
 SAVE_IMAGE_RATE = 10
 
 # --- Dataset Filtering ---
 TEST_INPUT_EXPOSURE: List[float] = [0.1]
 TEST_TRUTH_EXPOSURE: List[float] = [5]
 
-# whitelisting scenarios will use ONLY selected scenarios
+# whitelisting scenarios will use only selected scenarios
 WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
 
 
 def GetTestCallbacks(
-    wrapper: ModelWrapper,
     PSNR: metric_handlers.PSNR,
     SSIM: metric_handlers.SSIM,
     imageNumberMetric: metric_handlers.Metric[int],
 ):
-    def SaveMetrics(
+    def Callback(
         inputImage: torch.Tensor,
         gTruthImage: torch.Tensor,
         unetOutput: torch.Tensor,
@@ -95,16 +94,15 @@ def GetTestCallbacks(
             (unetOutputProcessed * 255).astype("uint8"),
         )
 
-    return SaveMetrics
+    return Callback
 
 
 def GetSaveImagesCallback(
-    wrapper: ModelWrapper,
     directory: str,
     rate: int,
     prefix: str,
 ):
-
+    # box the varaible
     imageIndex = [0]
 
     def Callback(
@@ -115,40 +113,41 @@ def GetSaveImagesCallback(
         gtruthMeta: List[CELImage],
         loss: float,
     ):
-        if (imageIndex[0] % rate) == 0:
+        if (imageIndex[0] % rate) != 0:
+            return
 
-            imname = (
-                prefix
-                + "_scenario_"
-                + inputMeta[0].scenario.__str__()
-                + "_CSVindex_"
-                + imageIndex[0].__str__()
-            )
-            imdir = directory + "/" + imname + ".jpg"
+        imname = (
+            prefix
+            + "_scenario_"
+            + inputMeta[0].scenario.__str__()
+            + "_CSVindex_"
+            + imageIndex[0].__str__()
+        )
+        imdir = directory + "/" + imname + ".jpg"
 
-            convertedImage = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
-            convertedImage = np.minimum(np.maximum(convertedImage, 0), 1)
+        convertedImage = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
+        convertedImage = np.minimum(np.maximum(convertedImage, 0), 1)
 
-            convertedImage *= 255
-            convertedImage = convertedImage.astype(np.uint8)
+        convertedImage *= 255
+        convertedImage = convertedImage.astype(np.uint8)
 
-            focal_length = (gtruthMeta[0].focalLength,)
-            f_number = gtruthMeta[0].f_number
-            location = gtruthMeta[0].location
+        focal_length = (gtruthMeta[0].focalLength,)
+        f_number = gtruthMeta[0].f_number
+        location = gtruthMeta[0].location
 
-            imageio.imwrite(imdir, convertedImage, "jpg")
+        imageio.imwrite(imdir, convertedImage, "jpg")
 
-            # now read the file via exif and store EXIF data
-            # doing this directly via imageio or cv2 proved to be troublesome
-            image = exif.Image(imdir)
+        # now read the file via exif and store EXIF data
+        # doing this directly via imageio or cv2 proved to be troublesome
+        image = exif.Image(imdir)
 
-            image.focal_length = focal_length
-            image.f_number = f_number
-            image.user_comment = location
+        image.focal_length = focal_length
+        image.f_number = f_number
+        image.user_comment = location
 
-            # write out file
-            file = open(imdir, mode="wb")
-            file.write(image.get_file())
+        # write out file
+        file = open(imdir, mode="wb")
+        file.write(image.get_file())
 
         imageIndex[0] += 1
 
@@ -158,12 +157,12 @@ def GetSaveImagesCallback(
 def Run():
 
     lightmapDict = common.GetLightmaps(RELIGHT_DEVICE)
-    exposureNormTransform = common.NormByRelight_Local(lightmapDict, IMAGE_BPS)
+    exposureNormTransform = common.NormByRelight_Local(lightmapDict, TRUTH_IMAGE_BPS)
 
     testTransforms = transforms.Compose(
         [
             common.GetEvalTransforms(
-                IMAGE_BPS, PATCH_SIZE, normalize=False, device=DEVICE
+                TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=DEVICE
             ),
             exposureNormTransform,
         ]
@@ -226,9 +225,7 @@ def Run():
         csvFileDir, [imageNumberMetric, tuneFactorMetric, metricPSNR, metricSSIM]
     )
 
-    wrapper.OnTestIter += GetTestCallbacks(
-        wrapper, metricPSNR, metricSSIM, imageNumberMetric
-    )
+    wrapper.OnTestIter += GetTestCallbacks(metricPSNR, metricSSIM, imageNumberMetric)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
         raise IOError("File " + WEIGHTS_DIRECTORY + " not found")
@@ -241,7 +238,7 @@ def Run():
 
         tuneFactorLambda = lambda *args: tuneFactorMetric.Call(factor)
         saveImageCallback = GetSaveImagesCallback(
-            wrapper, OUTPUT_DIRECTORY, SAVE_IMAGE_RATE, "factor_" + factor.__str__()
+            OUTPUT_DIRECTORY, SAVE_IMAGE_RATE, "factor_" + factor.__str__()
         )
 
         wrapper.OnTestIter += tuneFactorLambda
