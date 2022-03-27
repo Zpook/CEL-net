@@ -14,13 +14,7 @@ local/*
 
 
 output/*
-!output/.gitkeep
-output/undistorted/*
-!output/undistorted/.gitkeep
-
-
 tests/*
-!tests/.gitkeep
 
 # wandb
 wandb
