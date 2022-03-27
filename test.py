@@ -58,6 +58,10 @@ SAVE_IMAGE_RATE = 10
 TEST_INPUT_EXPOSURE: List[float] = [0.1]
 TEST_TRUTH_EXPOSURE: List[float] = [5]
 
+# whitelisting scenarios will use ONLY selected scenarios
+WHITELIST_SCENARIOS = []
+BLACKLIST_SCENARIOS = []
+
 
 def GetTestCallbacks(
     wrapper: ModelWrapper,
@@ -154,7 +158,7 @@ def GetSaveImagesCallback(
 def Run():
 
     lightmapDict = common.GetLightmaps(RELIGHT_DEVICE)
-    exposureNormTransform = common.NormByRelight_Local(lightmapDict,IMAGE_BPS)
+    exposureNormTransform = common.NormByRelight_Local(lightmapDict, IMAGE_BPS)
 
     testTransforms = transforms.Compose(
         [
@@ -165,12 +169,36 @@ def Run():
         ]
     )
 
-    testInputFilter = functools.partial(
+    test_input_filter = functools.partial(
         cel_filters.Exposures_Whitelist, TEST_INPUT_EXPOSURE
     )
-    testTruthFilter = functools.partial(
+    test_truth_filter = functools.partial(
         cel_filters.Exposures_Whitelist, TEST_TRUTH_EXPOSURE
     )
+
+    if WHITELIST_SCENARIOS.__len__() != 0:
+        whitelist_filter = functools.partial(
+            cel_filters.Scenario_Whitelist, WHITELIST_SCENARIOS
+        )
+
+        test_input_filter = functools.partial(
+            cel_filters.Chain, [test_input_filter, whitelist_filter]
+        )
+        test_truth_filter = functools.partial(
+            cel_filters.Chain, [test_truth_filter, whitelist_filter]
+        )
+
+    if BLACKLIST_SCENARIOS.__len__() != 0:
+        blacklist_filter = functools.partial(
+            cel_filters.Scenario_Whitelist, BLACKLIST_SCENARIOS
+        )
+
+        test_input_filter = functools.partial(
+            cel_filters.Chain, [test_input_filter, blacklist_filter]
+        )
+        test_truth_filter = functools.partial(
+            cel_filters.Chain, [test_truth_filter, blacklist_filter]
+        )
 
     dataloaderFactory = CELDataloaderFactory(
         TRAIN_JSON,
@@ -180,7 +208,7 @@ def Run():
     )
 
     testDataloader = dataloaderFactory.GetTest(
-        testTransforms, testInputFilter, testTruthFilter
+        testTransforms, test_input_filter, test_truth_filter
     )
 
     network = CELNet(adaptive=True)

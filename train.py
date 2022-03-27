@@ -39,6 +39,11 @@ IMAGE_CACHE_SIZE_MAX = 10000
 TRAIN_JSON: str = "./dataset/train.JSON"
 TEST_JSON: str = "./dataset/test.JSON"
 
+# ! REMOVE !
+TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
+TEST_JSON: str = "/media/mikel/New040Volume/WORK/dataset/test.JSON"
+
+
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
 EPOCHS_TRAIN = {
