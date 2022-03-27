@@ -17,8 +17,8 @@ MAX_RELIGHT_LEVEL = RAW_WHITE_LEVEL
 
 
 def Run():
-    inputExposuresFilter = functools.partial(cel_filters.FilterExactInList, INPUT_EXPOSURES)
-    truthExposuresFilter = functools.partial(cel_filters.FilterExactInList, OUTPUT_EXPOSURES)
+    inputExposuresFilter = functools.partial(cel_filters.Exposures_Whitelist, INPUT_EXPOSURES)
+    truthExposuresFilter = functools.partial(cel_filters.Exposures_Whitelist, OUTPUT_EXPOSURES)
 
     datasetLoader = RawCELDatasetLoader(TRAIN_JSON,inputExposuresFilter,truthExposuresFilter)
     sets = datasetLoader.GetSet()

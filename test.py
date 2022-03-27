@@ -44,6 +44,11 @@ TEST_JSON: str = "./dataset/test.JSON"
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 OUTPUT_DIRECTORY: str = "./output/"
 
+# ! REMOVE !
+TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
+TEST_JSON: str = "/media/mikel/New040Volume/WORK/dataset/test.JSON"
+
+
 TUNE_FACTORS = [0.5]
 
 # Write an output image every SAVE_IMAGE_RATE input images
@@ -149,7 +154,7 @@ def GetSaveImagesCallback(
 def Run():
 
     lightmapDict = common.GetLightmaps(RELIGHT_DEVICE)
-    exposureNormTransform = common.NormByRelight(lightmapDict,IMAGE_BPS)
+    exposureNormTransform = common.NormByRelight_Local(lightmapDict,IMAGE_BPS)
 
     testTransforms = transforms.Compose(
         [
@@ -161,10 +166,10 @@ def Run():
     )
 
     testInputFilter = functools.partial(
-        cel_filters.FilterExactInList, TEST_INPUT_EXPOSURE
+        cel_filters.Exposures_Whitelist, TEST_INPUT_EXPOSURE
     )
     testTruthFilter = functools.partial(
-        cel_filters.FilterExactInList, TEST_TRUTH_EXPOSURE
+        cel_filters.Exposures_Whitelist, TEST_TRUTH_EXPOSURE
     )
 
     dataloaderFactory = CELDataloaderFactory(
