@@ -85,7 +85,7 @@ TUNE_INPUT_EXPOSURE: List[float] = [0.1]
 TUNE_TRUTH_EXPOSURE: List[float] = [10]
 
 # whitelisting scenarios will use ONLY selected scenarios, useful for overfitting
-WHITELIST_SCENARIOS = [2001]
+WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
 
 
