@@ -97,6 +97,7 @@ class ValidationHandler:
         validationRate: int,
         savedir: str,
         computeDevice: str,
+        globalCSVsuffix:str = ""
     ) -> None:
         self.wrapper = wrapper
         self.dataloader = dataloader
@@ -113,14 +114,16 @@ class ValidationHandler:
         )
         self.metric_imageNumber = metric_handlers.Metric[int](name="Image")
 
-        globalMetricsCSV = self.outdir + "validation.csv"
-        self.globalbMetrics = metric_handlers.MetricsToCsv(
-            globalMetricsCSV,
-            [self.metric_imageNumber, self.metric_PSNR, self.metric_SSIM],
-        )
+
         self.metric_epochIndex = metric_handlers.Metric[int](name="Epoch")
         self.metric_averagePSNR = metric_handlers.Metric[float](name="Avg PSNR")
         self.metric_averageSSIM = metric_handlers.Metric[float](name="Avg SSIM")
+
+        globalMetricsCSVdir = self.outdir + "validation" + globalCSVsuffix + ".csv"
+        self.globalbMetrics = metric_handlers.MetricsToCsv(
+            globalMetricsCSVdir,
+            [self.metric_epochIndex, self.metric_averagePSNR, self.metric_averageSSIM],
+        )
 
     def __call__(self, epochIndex: int):
         if (epochIndex % self.validationRate) != 0:
@@ -351,7 +354,7 @@ def Run():
     network = CELNet(adaptive=True)
     optimParams = network.TuningMode()
 
-    optimiser = optim.Adam(optimParams, lr=LR_TUNE[0])
+    optimiser = optim.Adam(optimParams, lr=LR_TUNE[1])
     wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
     wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
@@ -366,6 +369,7 @@ def Run():
             VALIDATION_RATE,
             VALIDATION_OUTPUT_DIRECTORY,
             VALIDATION_DEVICE,
+            "_tune"
         )
         wrapper.OnTrainEpoch += validator
 
