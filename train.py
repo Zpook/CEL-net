@@ -1,3 +1,4 @@
+from curses import wrapper
 import logging
 import sys
 import os
@@ -54,9 +55,9 @@ WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
 VALIDATION_ENALBED: bool = True
 VALIDATION_OUTPUT_DIRECTORY: str = "./output/validation/"
-VALIDATION_RATE: int = 50
+VALIDATION_RATE: int = 1
 VALIDATION_DEVICE = "cpu"
-VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = (2000,3008)
+VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = (2000, 3008)
 
 EPOCHS_TRAIN = {
     1: 400,
@@ -84,50 +85,77 @@ TUNE_INPUT_EXPOSURE: List[float] = [0.1]
 TUNE_TRUTH_EXPOSURE: List[float] = [10]
 
 # whitelisting scenarios will use ONLY selected scenarios, useful for overfitting
-WHITELIST_SCENARIOS = []
+WHITELIST_SCENARIOS = [2001]
 BLACKLIST_SCENARIOS = []
 
 
 class ValidationHandler:
     def __init__(
-        self,wrapper: ModelWrapper, dataloader, validationRate: int, savedir
+        self,
+        wrapper: ModelWrapper,
+        dataloader,
+        validationRate: int,
+        savedir: str,
+        computeDevice: str,
     ) -> None:
         self.wrapper = wrapper
         self.dataloader = dataloader
         self.validationRate = validationRate
         self.outdir = savedir
+        self.device = computeDevice
 
+        self._originalWrapperDevice = wrapper._device
         self._currentDir = None
 
-        self.metricPSNR = metric_handlers.PSNR(name="PSNR", dataRange=255)
-        self.metricSSIM = metric_handlers.SSIM(multichannel=True, name="SSIM", dataRange=255)
-        self.imageNumberMetric = metric_handlers.Metric[int](name="Image")
+        self.metric_PSNR = metric_handlers.PSNR(name="PSNR", dataRange=255)
+        self.metric_SSIM = metric_handlers.SSIM(
+            multichannel=True, name="SSIM", dataRange=255
+        )
+        self.metric_imageNumber = metric_handlers.Metric[int](name="Image")
 
+        globalMetricsCSV = self.outdir + "validation.csv"
+        self.globalbMetrics = metric_handlers.MetricsToCsv(
+            globalMetricsCSV,
+            [self.metric_imageNumber, self.metric_PSNR, self.metric_SSIM],
+        )
+        self.metric_epochIndex = metric_handlers.Metric[int](name="Epoch")
+        self.metric_averagePSNR = metric_handlers.Metric[float](name="Avg PSNR")
+        self.metric_averageSSIM = metric_handlers.Metric[float](name="Avg SSIM")
 
-    def __call__(self,epochIndex: int):
+    def __call__(self, epochIndex: int):
         if (epochIndex % self.validationRate) != 0:
             return
 
+        self.wrapper.ToDevice(self.device)
         self._currentDir = self.outdir + epochIndex.__str__() + "/"
+        os.mkdir(self._currentDir)
 
-        self.metricPSNR.Flush()
-        self.metricSSIM.Flush()
-        self.imageNumberMetric.Flush()
+        self.metric_PSNR.Flush()
+        self.metric_SSIM.Flush()
+        self.metric_imageNumber.Flush()
 
         csvFileDir: str = self._currentDir + "data.csv"
 
         metricsToCsv = metric_handlers.MetricsToCsv(
-            csvFileDir, [self.imageNumberMetric, self.metricPSNR, self.metricSSIM]
+            csvFileDir, [self.metric_imageNumber, self.metric_PSNR, self.metric_SSIM]
         )
 
-        self.wrapper.OnTestIter += self.OnIterCallback
+        self.wrapper.OnTestIter += self._OnIterCallback
         self.wrapper.Test(self.dataloader)
-        self.wrapper.OnTestIter -= self.OnIterCallback
+        self.wrapper.OnTestIter -= self._OnIterCallback
+
+        self.metric_epochIndex.Call(epochIndex)
+        self.metric_averagePSNR.Call(np.average(self.metric_PSNR.data))
+        self.metric_averageSSIM.Call(np.average(self.metric_SSIM.data))
+
+        self.wrapper.ToDevice(self._originalWrapperDevice)
 
         metricsToCsv.Write()
 
+    def Finalize(self):
+        self.globalbMetrics.Write()
 
-    def OnIterCallback(
+    def _OnIterCallback(
         self,
         inputImage: torch.Tensor,
         gTruthImage: torch.Tensor,
@@ -142,17 +170,20 @@ class ValidationHandler:
 
         unetOutputProcessed = np.minimum(np.maximum(unetOutputProcessed, 0), 1)
 
-        self.imageNumberMetric.Call(inputMeta[0].scenario)
-        self.metricPSNRPSNR.Call(
-            (gtruthProcessed * 255).astype("uint8"),
-            (unetOutputProcessed * 255).astype("uint8"),
+        truthNumpy = (gtruthProcessed * 255).astype("uint8")
+        unetOutNumpy = (unetOutputProcessed * 255).astype("uint8")
+
+        self.metric_imageNumber.Call(inputMeta[0].scenario)
+        self.metric_PSNR.Call(
+            truthNumpy,
+            unetOutNumpy,
         )
-        self.metricPSNRSSIM.Call(
-            (gtruthProcessed * 255).astype("uint8"),
-            (unetOutputProcessed * 255).astype("uint8"),
+        self.metric_SSIM.Call(
+            truthNumpy,
+            unetOutNumpy,
         )
 
-        imname = +"scenario_" + inputMeta[0].scenario.__str__()
+        imname = "scenario_" + inputMeta[0].scenario.__str__()
         imdir = self._currentDir + imname + ".jpg"
 
         unetOutputProcessed *= 255
@@ -172,6 +203,18 @@ def Run():
         [
             common.GetTrainTransforms(
                 TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
+            ),
+            exposureNormTransform,
+        ]
+    )
+
+    validationTransforms = transforms.Compose(
+        [
+            common.GetTrainTransforms(
+                TRUTH_IMAGE_BPS,
+                VALIDATION_PATCH_SIZE,
+                normalize=False,
+                device=VALIDATION_DEVICE,
             ),
             exposureNormTransform,
         ]
@@ -249,23 +292,34 @@ def Run():
         wrapper.metaDict["model_tune_state"] = False
         wrapper.Save(WEIGHTS_DIRECTORY)
 
+    # TODO must be a better way to do this
     checkpoint = torch.load(WEIGHTS_DIRECTORY)
     model_tune_flag = checkpoint["META"]["model_tune_state"]
     del checkpoint
 
     if not model_tune_flag:
 
-        wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
-        if VALIDATION_ENALBED:
-            validationWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), VALIDATION_DEVICE)
-            validator = ValidationHandler(validationWrapper,dataloader,VALIDATION_RATE,VALIDATION_OUTPUT_DIRECTORY)
-            wrapper.OnTrainEpoch += validator
-
-        wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
-
         dataloader = dataloaderFactory.GetTrain(
             trainTransforms, train_input_filter, train_truth_filter
         )
+
+        wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+
+        if VALIDATION_ENALBED:
+
+            validationDataloader = dataloaderFactory.GetTrain(
+                validationTransforms, train_input_filter, train_truth_filter
+            )
+            validator = ValidationHandler(
+                wrapper,
+                validationDataloader,
+                VALIDATION_RATE,
+                VALIDATION_OUTPUT_DIRECTORY,
+                VALIDATION_DEVICE,
+            )
+            wrapper.OnTrainEpoch += validator
+
+        wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
         wrapper.Train(
             dataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
@@ -279,6 +333,9 @@ def Run():
 
         wrapper.metaDict["model_tune_state"] = True
         wrapper.Save(WEIGHTS_DIRECTORY)
+
+        if VALIDATION_ENALBED:
+            validator.Finalize()
 
     # tuning starts here, rebuild everything
     # TODO: this is blatant copy-past code
@@ -295,12 +352,23 @@ def Run():
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
     if VALIDATION_ENALBED:
-        validationWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), VALIDATION_DEVICE)
-        validator = ValidationHandler(validationWrapper,dataloader,VALIDATION_RATE,VALIDATION_OUTPUT_DIRECTORY)
+        validationDataloader = dataloaderFactory.GetTrain(
+            validationTransforms, tune_input_filter, tune_truth_filter
+        )
+        validator = ValidationHandler(
+            wrapper,
+            validationDataloader,
+            VALIDATION_RATE,
+            VALIDATION_OUTPUT_DIRECTORY,
+            VALIDATION_DEVICE,
+        )
         wrapper.OnTrainEpoch += validator
 
     wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
     wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
+
+    if VALIDATION_ENALBED:
+        validator.Finalize()
 
 
 if __name__ == "__main__":

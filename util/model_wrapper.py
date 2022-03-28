@@ -10,7 +10,7 @@ import torch.nn as nn
 from util.events import Event
 
 from image_dataset.dataset_loaders.CEL import CELImage
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
 CHECKPOINT_EPOCH_KEYWORD: str = "epoch"
 CHECKPOINT_WEIGHTS_KEYWORD: str = "model_state_dict"
@@ -34,7 +34,19 @@ class OnTrainEpochEvent(Event[Callable[[int], None]]):
 
 
 class OnTestIterEvent(
-    Event[Callable[[torch.Tensor, torch.Tensor, torch.Tensor, List[CELImage], List[CELImage], float], None]]
+    Event[
+        Callable[
+            [
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                List[CELImage],
+                List[CELImage],
+                float,
+            ],
+            None,
+        ]
+    ]
 ):
     def __call__(
         self,
@@ -45,7 +57,9 @@ class OnTestIterEvent(
         gtruthMeta: List[CELImage],
         loss: float,
     ) -> None:
-        super().__call__(inputImage, gTruthImage, unetOutput,inputMeta, gtruthMeta, loss)
+        super().__call__(
+            inputImage, gTruthImage, unetOutput, inputMeta, gtruthMeta, loss
+        )
 
 
 class ModelWrapper:
@@ -54,7 +68,7 @@ class ModelWrapper:
         model: nn.Module,
         optimiser: optim.Optimizer,
         lossFunction: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-        deviceString: str,
+        device: str,
     ):
         self._model = model
         self._optimiser = optimiser
@@ -64,8 +78,8 @@ class ModelWrapper:
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.INFO)
 
-        self._device = torch.device(deviceString)
-        self._LoadDevice(self._device)
+        self._device: torch.device = "cpu"
+        self.ToDevice(device)
 
         self.metaDict: Dict[str, Any] = {}
 
@@ -76,7 +90,9 @@ class ModelWrapper:
 
         self.OnTestIter = OnTestIterEvent()
 
-    def _LoadDevice(self, device: torch.device):
+    def ToDevice(self, device: Union[str, torch.device]):
+        device = torch.device(device)
+
         if device.type == "cpu":
             self._logger.info("Running on CPU")
 
@@ -90,13 +106,19 @@ class ModelWrapper:
         else:
             raise Exception("Unable to load " + str(device))
 
+        self._device = device
+        self._model.to(self._device)
+
     # ! Might crash / misbehave on some optimisers
     def _ChangeLearningRate(self, learningRate: float):
         for paramGroup in self._optimiser.param_groups:
             paramGroup["lr"] = learningRate
 
     def Train(
-        self, datasetLoader: DataLoader, trainToEpoch: int, learningRate: float,
+        self,
+        datasetLoader: DataLoader,
+        trainToEpoch: int,
+        learningRate: float,
     ):
         self._model.train()
         self._ChangeLearningRate(learningRate)
