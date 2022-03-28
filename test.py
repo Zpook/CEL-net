@@ -63,6 +63,7 @@ WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
 
 
+# TODO rewrite this adhering to the ValidationHandler in train.py
 def GetTestCallbacks(
     PSNR: metric_handlers.PSNR,
     SSIM: metric_handlers.SSIM,

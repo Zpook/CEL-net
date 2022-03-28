@@ -16,80 +16,11 @@ import metric_handlers
 import util.common as common
 from util.model_wrapper import ModelWrapper
 from networks import CELNet
-from image_dataset.dataset_loaders.CEL import CELDataloaderFactory, cel_filters, CELImage
-
-
-def GetValidationCallback(wrapper: ModelWrapper,dataloader,validationRate:int,savedir):
-
-    def Callback(
-        inputImage: torch.Tensor,
-        gTruthImage: torch.Tensor,
-        unetOutput: torch.Tensor,
-        inputMeta: CELImage,
-        gtruthMeta: CELImage,
-        loss: float,
-    ):
-
-        imageNumber = imageNumberMetric.data.__len__()
-        imageNumberMetric.Call(imageNumber)
-
-        gtruthProcessed = gTruthImage[0].permute(1, 2, 0).cpu().data.numpy()
-        unetOutputProcessed = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
-
-        unetOutputProcessed = np.minimum(np.maximum(unetOutputProcessed, 0), 1)
-
-        PSNR.Call(
-            (gtruthProcessed * 255).astype("uint8"),
-            (unetOutputProcessed * 255).astype("uint8"),
-        )
-        SSIM.Call(
-            (gtruthProcessed * 255).astype("uint8"),
-            (unetOutputProcessed * 255).astype("uint8"),
-        )
-
-        return Callback
-
-    def GetValidationIterCallback(savedir: str, scenarioIndex:int,PSNR: metric_handlers.PSNR, SSIM: metric_handlers.SSIM):
-
-        def OnValidationIter(
-            inputImage: torch.Tensor,
-            gTruthImage: torch.Tensor,
-            unetOutput: torch.Tensor,
-            inputMeta: List[CELImage],
-            gtruthMeta: List[CELImage],
-            loss: float,
-        ):
-
-            imname = (
-                + "scenario_"
-                + inputMeta[0].scenario.__str__()
-            )
-            imdir = savedir + "/" + imname + ".jpg"
-
-            convertedImage = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
-            convertedImage = np.minimum(np.maximum(convertedImage, 0), 1)
-
-            convertedImage *= 255
-            convertedImage = convertedImage.astype(np.uint8)
-
-            imageio.imwrite(imdir, convertedImage, "jpg")
-
-        return OnValidationIter
-
-    def Callback(
-        epochIndex:int
-    ):
-        if (epochIndex % validationRate) != 0:
-            return
-
-        # wrapper.OnTestIter +=
-        wrapper.Test(dataloader)
-        
-
-
-    return Callback
-
-
+from image_dataset.dataset_loaders.CEL import (
+    CELDataloaderFactory,
+    cel_filters,
+    CELImage,
+)
 
 # --- General Settings ---
 
@@ -119,10 +50,13 @@ TEST_JSON: str = "./dataset/test.JSON"
 TRAIN_JSON: str = "/media/mikel/New040Volume/WORK/dataset/train.JSON"
 TEST_JSON: str = "/media/mikel/New040Volume/WORK/dataset/test.JSON"
 
-
 WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
-VALIDATION_RATE = 50
+VALIDATION_ENALBED: bool = True
+VALIDATION_OUTPUT_DIRECTORY: str = "./output/validation/"
+VALIDATION_RATE: int = 50
+VALIDATION_DEVICE = "cpu"
+VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = (2000,3008)
 
 EPOCHS_TRAIN = {
     1: 400,
@@ -152,6 +86,79 @@ TUNE_TRUTH_EXPOSURE: List[float] = [10]
 # whitelisting scenarios will use ONLY selected scenarios, useful for overfitting
 WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
+
+
+class ValidationHandler:
+    def __init__(
+        self,wrapper: ModelWrapper, dataloader, validationRate: int, savedir
+    ) -> None:
+        self.wrapper = wrapper
+        self.dataloader = dataloader
+        self.validationRate = validationRate
+        self.outdir = savedir
+
+        self._currentDir = None
+
+        self.metricPSNR = metric_handlers.PSNR(name="PSNR", dataRange=255)
+        self.metricSSIM = metric_handlers.SSIM(multichannel=True, name="SSIM", dataRange=255)
+        self.imageNumberMetric = metric_handlers.Metric[int](name="Image")
+
+
+    def __call__(self,epochIndex: int):
+        if (epochIndex % self.validationRate) != 0:
+            return
+
+        self._currentDir = self.outdir + epochIndex.__str__() + "/"
+
+        self.metricPSNR.Flush()
+        self.metricSSIM.Flush()
+        self.imageNumberMetric.Flush()
+
+        csvFileDir: str = self._currentDir + "data.csv"
+
+        metricsToCsv = metric_handlers.MetricsToCsv(
+            csvFileDir, [self.imageNumberMetric, self.metricPSNR, self.metricSSIM]
+        )
+
+        self.wrapper.OnTestIter += self.OnIterCallback
+        self.wrapper.Test(self.dataloader)
+        self.wrapper.OnTestIter -= self.OnIterCallback
+
+        metricsToCsv.Write()
+
+
+    def OnIterCallback(
+        self,
+        inputImage: torch.Tensor,
+        gTruthImage: torch.Tensor,
+        unetOutput: torch.Tensor,
+        inputMeta: CELImage,
+        gtruthMeta: CELImage,
+        loss: float,
+    ):
+
+        gtruthProcessed = gTruthImage[0].permute(1, 2, 0).cpu().data.numpy()
+        unetOutputProcessed = unetOutput[0].permute(1, 2, 0).cpu().data.numpy()
+
+        unetOutputProcessed = np.minimum(np.maximum(unetOutputProcessed, 0), 1)
+
+        self.imageNumberMetric.Call(inputMeta[0].scenario)
+        self.metricPSNRPSNR.Call(
+            (gtruthProcessed * 255).astype("uint8"),
+            (unetOutputProcessed * 255).astype("uint8"),
+        )
+        self.metricPSNRSSIM.Call(
+            (gtruthProcessed * 255).astype("uint8"),
+            (unetOutputProcessed * 255).astype("uint8"),
+        )
+
+        imname = +"scenario_" + inputMeta[0].scenario.__str__()
+        imdir = self._currentDir + imname + ".jpg"
+
+        unetOutputProcessed *= 255
+        unetOutputProcessed = unetOutputProcessed.astype(np.uint8)
+
+        imageio.imwrite(imdir, unetOutputProcessed, "jpg")
 
 
 def Run():
@@ -186,24 +193,43 @@ def Run():
         cel_filters.Exposures_Whitelist, TUNE_TRUTH_EXPOSURE
     )
 
-    if WHITELIST_SCENARIOS.__len__()!= 0:
-        whitelist_filter = functools.partial(cel_filters.Scenario_Whitelist, WHITELIST_SCENARIOS)
+    if WHITELIST_SCENARIOS.__len__() != 0:
+        whitelist_filter = functools.partial(
+            cel_filters.Scenario_Whitelist, WHITELIST_SCENARIOS
+        )
 
-        train_input_filter = functools.partial(cel_filters.Chain, [train_input_filter,whitelist_filter])
-        train_truth_filter = functools.partial(cel_filters.Chain, [train_truth_filter,whitelist_filter])
-        
-        tune_input_filter = functools.partial(cel_filters.Chain, [tune_input_filter,whitelist_filter])
-        tune_truth_filter = functools.partial(cel_filters.Chain, [tune_truth_filter,whitelist_filter])
+        train_input_filter = functools.partial(
+            cel_filters.Chain, [train_input_filter, whitelist_filter]
+        )
+        train_truth_filter = functools.partial(
+            cel_filters.Chain, [train_truth_filter, whitelist_filter]
+        )
 
-    if BLACKLIST_SCENARIOS.__len__()!= 0:
-        blacklist_filter = functools.partial(cel_filters.Scenario_Whitelist, BLACKLIST_SCENARIOS)
+        tune_input_filter = functools.partial(
+            cel_filters.Chain, [tune_input_filter, whitelist_filter]
+        )
+        tune_truth_filter = functools.partial(
+            cel_filters.Chain, [tune_truth_filter, whitelist_filter]
+        )
 
-        train_input_filter = functools.partial(cel_filters.Chain, [train_input_filter,blacklist_filter])
-        train_truth_filter = functools.partial(cel_filters.Chain, [train_truth_filter,blacklist_filter])
-        
-        tune_input_filter = functools.partial(cel_filters.Chain, [tune_input_filter,blacklist_filter])
-        tune_truth_filter = functools.partial(cel_filters.Chain, [tune_truth_filter,blacklist_filter])
+    if BLACKLIST_SCENARIOS.__len__() != 0:
+        blacklist_filter = functools.partial(
+            cel_filters.Scenario_Whitelist, BLACKLIST_SCENARIOS
+        )
 
+        train_input_filter = functools.partial(
+            cel_filters.Chain, [train_input_filter, blacklist_filter]
+        )
+        train_truth_filter = functools.partial(
+            cel_filters.Chain, [train_truth_filter, blacklist_filter]
+        )
+
+        tune_input_filter = functools.partial(
+            cel_filters.Chain, [tune_input_filter, blacklist_filter]
+        )
+        tune_truth_filter = functools.partial(
+            cel_filters.Chain, [tune_truth_filter, blacklist_filter]
+        )
 
     dataloaderFactory = CELDataloaderFactory(
         TRAIN_JSON,
@@ -230,34 +256,33 @@ def Run():
     if not model_tune_flag:
 
         wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
-        wrapper.OnTrainEpoch += GetValidationCallback
-
+        if VALIDATION_ENALBED:
+            validationWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), VALIDATION_DEVICE)
+            validator = ValidationHandler(validationWrapper,dataloader,VALIDATION_RATE,VALIDATION_OUTPUT_DIRECTORY)
+            wrapper.OnTrainEpoch += validator
 
         wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
-        trainDataloader = dataloaderFactory.GetTrain(
+        dataloader = dataloaderFactory.GetTrain(
             trainTransforms, train_input_filter, train_truth_filter
         )
 
         wrapper.Train(
-            trainDataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
+            dataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
         )
         wrapper.Train(
-            trainDataloader, trainToEpoch=EPOCHS_TRAIN[2], learningRate=LR_TRAIN[2]
+            dataloader, trainToEpoch=EPOCHS_TRAIN[2], learningRate=LR_TRAIN[2]
         )
         wrapper.Train(
-            trainDataloader, trainToEpoch=EPOCHS_TRAIN[3], learningRate=LR_TRAIN[3]
+            dataloader, trainToEpoch=EPOCHS_TRAIN[3], learningRate=LR_TRAIN[3]
         )
-
-        # free up memory
-        del trainDataloader
 
         wrapper.metaDict["model_tune_state"] = True
         wrapper.Save(WEIGHTS_DIRECTORY)
 
     # tuning starts here, rebuild everything
     # TODO: this is blatant copy-past code
-    tuneDataloader = dataloaderFactory.GetTrain(
+    dataloader = dataloaderFactory.GetTrain(
         trainTransforms, tune_input_filter, tune_truth_filter
     )
 
@@ -269,10 +294,13 @@ def Run():
     wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
     wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
-    wrapper.OnTrainEpoch += GetValidationCallback
+    if VALIDATION_ENALBED:
+        validationWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), VALIDATION_DEVICE)
+        validator = ValidationHandler(validationWrapper,dataloader,VALIDATION_RATE,VALIDATION_OUTPUT_DIRECTORY)
+        wrapper.OnTrainEpoch += validator
 
-    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
-    wrapper.Train(tuneDataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
+    wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
+    wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
 
 
 if __name__ == "__main__":
