@@ -57,7 +57,7 @@ VALIDATION_ENALBED: bool = True
 VALIDATION_OUTPUT_DIRECTORY: str = "./output/validation/"
 VALIDATION_RATE: int = 1
 VALIDATION_DEVICE = "cpu"
-VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = (2000, 3008)
+VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = 512
 
 EPOCHS_TRAIN = {
     1: 400,
@@ -126,6 +126,7 @@ class ValidationHandler:
         if (epochIndex % self.validationRate) != 0:
             return
 
+        _logger.info("Running validation")
         self.wrapper.ToDevice(self.device)
         self._currentDir = self.outdir + epochIndex.__str__() + "/"
         os.mkdir(self._currentDir)
@@ -208,17 +209,18 @@ def Run():
         ]
     )
 
-    validationTransforms = transforms.Compose(
-        [
-            common.GetTrainTransforms(
-                TRUTH_IMAGE_BPS,
-                VALIDATION_PATCH_SIZE,
-                normalize=False,
-                device=VALIDATION_DEVICE,
-            ),
-            exposureNormTransform,
-        ]
-    )
+    if VALIDATION_ENALBED:
+        validationTransforms = transforms.Compose(
+            [
+                common.GetTrainTransforms(
+                    TRUTH_IMAGE_BPS,
+                    VALIDATION_PATCH_SIZE,
+                    normalize=False,
+                    device=VALIDATION_DEVICE,
+                ),
+                exposureNormTransform,
+            ]
+        )
 
     # construct filters to sort database
 
@@ -298,6 +300,7 @@ def Run():
     del checkpoint
 
     if not model_tune_flag:
+        _logger.info("Training base model")
 
         dataloader = dataloaderFactory.GetTrain(
             trainTransforms, train_input_filter, train_truth_filter
@@ -337,6 +340,8 @@ def Run():
         if VALIDATION_ENALBED:
             validator.Finalize()
 
+    _logger.info("Tuning model")
+
     # tuning starts here, rebuild everything
     # TODO: this is blatant copy-past code
     dataloader = dataloaderFactory.GetTrain(
@@ -372,6 +377,9 @@ def Run():
 
 
 if __name__ == "__main__":
+    global _logger
+    _logger = logging.getLogger(__name__)
+    _logger.setLevel(logging.INFO)
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     torch.multiprocessing.set_start_method("spawn")

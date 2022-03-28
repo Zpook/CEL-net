@@ -254,6 +254,10 @@ def Run():
 
 
 if __name__ == "__main__":
+    global _logger
+
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    _logger = logging.getLogger(__name__)
+    _logger.setLevel(logging.INFO)
 
     Run()
