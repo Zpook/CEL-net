@@ -55,9 +55,18 @@ WEIGHTS_DIRECTORY: str = "./local/model.pt"
 
 VALIDATION_ENALBED: bool = True
 VALIDATION_OUTPUT_DIRECTORY: str = "./output/validation/"
-VALIDATION_RATE: int = 1
+VALIDATION_RATE: int = 50
 VALIDATION_DEVICE = "cpu"
 VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = 512
+
+LOGGING_FILE_ENALBED: bool = True
+LOGGING_OUTPUT_FILE: str = "./local/train_log.txt"
+
+METRICS_ENABLED: bool = True
+METRICS_TRAIN_DIR: str = "./output/train_metrics.csv"
+METRICS_TUNE_DIR: str = "./output/tune_metrics.csv"
+
+
 
 EPOCHS_TRAIN = {
     1: 400,
@@ -88,6 +97,30 @@ TUNE_TRUTH_EXPOSURE: List[float] = [10]
 WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
 
+class TrainMetricsHandler:
+    def __init__(self,outputFile) -> None:
+        self.filepath = outputFile
+
+        self.lossLog = []
+        self.metric_loss = metric_handlers.Metric[float]("Loss")
+        self.metric_epoch = metric_handlers.Metric[float]("Epoch")
+
+        self.metricsFile = metric_handlers.MetricsToCsv(
+            self.filepath,
+            [self.metric_epoch, self.metric_loss, self],
+        )
+
+
+    def OnInter(self,avgLoss:float,learningRate:float):
+        self.lossLog.append(avgLoss)
+
+    def OnEpoch(self,epoch):
+        self.metric_loss.Call(np.mean(self.lossLog))
+        self.metric_epoch.Call(epoch-1)
+        self.lossLog = []
+
+    def Writeout(self):
+        self.metricsFile.Write()
 
 class ValidationHandler:
     def __init__(
@@ -129,7 +162,7 @@ class ValidationHandler:
         if (epochIndex % self.validationRate) != 0:
             return
 
-        _logger.info("Running validation")
+        logger.info("Running validation")
         self.wrapper.ToDevice(self.device)
         self._currentDir = self.outdir + epochIndex.__str__() + "/"
         os.mkdir(self._currentDir)
@@ -156,7 +189,7 @@ class ValidationHandler:
 
         metricsToCsv.Write()
 
-    def Finalize(self):
+    def Writeout(self):
         self.globalbMetrics.Write()
 
     def _OnIterCallback(
@@ -290,12 +323,12 @@ def Run():
 
     network = CELNet(adaptive=False)
     optimiser = optim.Adam(network.parameters(), lr=LR_TRAIN[1])
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
+    modelWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
         network._initialize_weights()
-        wrapper.metaDict["model_tune_state"] = False
-        wrapper.Save(WEIGHTS_DIRECTORY)
+        modelWrapper.metaDict["model_tune_state"] = False
+        modelWrapper.Save(WEIGHTS_DIRECTORY)
 
     # TODO must be a better way to do this
     checkpoint = torch.load(WEIGHTS_DIRECTORY)
@@ -303,13 +336,18 @@ def Run():
     del checkpoint
 
     if not model_tune_flag:
-        _logger.info("Training base model")
+        logger.info("Training base model...")
 
         dataloader = dataloaderFactory.GetTrain(
             trainTransforms, train_input_filter, train_truth_filter
         )
 
-        wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+        modelWrapper.OnTrainEpoch += lambda *args: modelWrapper.Save(WEIGHTS_DIRECTORY)
+
+        if METRICS_ENABLED:
+            lossLogger = TrainMetricsHandler(METRICS_TRAIN_DIR)
+            modelWrapper.OnTrainIter += lossLogger.OnInter
+            modelWrapper.OnTrainEpoch += lossLogger.OnEpoch
 
         if VALIDATION_ENALBED:
 
@@ -317,33 +355,36 @@ def Run():
                 validationTransforms, train_input_filter, train_truth_filter
             )
             validator = ValidationHandler(
-                wrapper,
+                modelWrapper,
                 validationDataloader,
                 VALIDATION_RATE,
                 VALIDATION_OUTPUT_DIRECTORY,
                 VALIDATION_DEVICE,
             )
-            wrapper.OnTrainEpoch += validator
+            modelWrapper.OnTrainEpoch += validator
 
-        wrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
+        modelWrapper.LoadWeights(WEIGHTS_DIRECTORY, strictWeightLoad=True)
 
-        wrapper.Train(
+        modelWrapper.Train(
             dataloader, trainToEpoch=EPOCHS_TRAIN[1], learningRate=LR_TRAIN[1]
         )
-        wrapper.Train(
+        modelWrapper.Train(
             dataloader, trainToEpoch=EPOCHS_TRAIN[2], learningRate=LR_TRAIN[2]
         )
-        wrapper.Train(
+        modelWrapper.Train(
             dataloader, trainToEpoch=EPOCHS_TRAIN[3], learningRate=LR_TRAIN[3]
         )
 
-        wrapper.metaDict["model_tune_state"] = True
-        wrapper.Save(WEIGHTS_DIRECTORY)
+        modelWrapper.metaDict["model_tune_state"] = True
+        modelWrapper.Save(WEIGHTS_DIRECTORY)
 
         if VALIDATION_ENALBED:
-            validator.Finalize()
+            validator.Writeout()
 
-    _logger.info("Tuning model")
+        if METRICS_ENABLED:
+            lossLogger.Writeout()
+
+    logger.info("Tuning model...")
 
     # tuning starts here, rebuild everything
     # TODO: this is blatant copy-past code
@@ -355,36 +396,52 @@ def Run():
     optimParams = network.TuningMode()
 
     optimiser = optim.Adam(optimParams, lr=LR_TUNE[1])
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
-    wrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
+    modelWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), MODEL_DEVICE)
+    modelWrapper.LoadWeights(WEIGHTS_DIRECTORY, loadOptimiser=False, strictWeightLoad=True)
 
-    wrapper.OnTrainEpoch += lambda *args: wrapper.Save(WEIGHTS_DIRECTORY)
+    modelWrapper.OnTrainEpoch += lambda *args: modelWrapper.Save(WEIGHTS_DIRECTORY)
+
     if VALIDATION_ENALBED:
         validationDataloader = dataloaderFactory.GetTrain(
             validationTransforms, tune_input_filter, tune_truth_filter
         )
         validator = ValidationHandler(
-            wrapper,
+            modelWrapper,
             validationDataloader,
             VALIDATION_RATE,
             VALIDATION_OUTPUT_DIRECTORY,
             VALIDATION_DEVICE,
             "_tune"
         )
-        wrapper.OnTrainEpoch += validator
+        modelWrapper.OnTrainEpoch += validator
 
-    wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
-    wrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
+    if METRICS_ENABLED:
+        lossLogger = TrainMetricsHandler(METRICS_TUNE_DIR)
+        modelWrapper.OnTrainIter += lossLogger.OnInter
+        modelWrapper.OnTrainEpoch += lossLogger.OnEpoch 
+
+    modelWrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[1], learningRate=LR_TUNE[1])
+    modelWrapper.Train(dataloader, trainToEpoch=EPOCHS_TUNE[2], learningRate=LR_TUNE[2])
 
     if VALIDATION_ENALBED:
-        validator.Finalize()
+        validator.Writeout()
+
+    if METRICS_ENABLED:
+        lossLogger.Writeout()
 
 
 if __name__ == "__main__":
-    global _logger
-    _logger = logging.getLogger(__name__)
-    _logger.setLevel(logging.INFO)
+    global logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    
+    if LOGGING_FILE_ENALBED:
+        fileHandler = logging.FileHandler(LOGGING_OUTPUT_FILE)
+        fileHandler.setLevel(logging.INFO)
+        logger.addHandler(fileHandler)
+
+
     torch.multiprocessing.set_start_method("spawn")
     Run()

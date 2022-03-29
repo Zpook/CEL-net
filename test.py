@@ -63,7 +63,7 @@ WHITELIST_SCENARIOS = []
 BLACKLIST_SCENARIOS = []
 
 
-# TODO rewrite this adhering to the ValidationHandler in train.py
+# TODO rewrite this as a class
 def GetTestCallbacks(
     PSNR: metric_handlers.PSNR,
     SSIM: metric_handlers.SSIM,
@@ -213,7 +213,7 @@ def Run():
 
     network = CELNet(adaptive=True)
     optimiser = optim.Adam(network.parameters(), lr=1e-4)
-    wrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
+    modelWrapper = ModelWrapper(network, optimiser, torch.nn.L1Loss(), DEVICE)
 
     metricPSNR = metric_handlers.PSNR(name="PSNR", dataRange=255)
     metricSSIM = metric_handlers.SSIM(multichannel=True, name="SSIM", dataRange=255)
@@ -226,12 +226,12 @@ def Run():
         csvFileDir, [imageNumberMetric, tuneFactorMetric, metricPSNR, metricSSIM]
     )
 
-    wrapper.OnTestIter += GetTestCallbacks(metricPSNR, metricSSIM, imageNumberMetric)
+    modelWrapper.OnTestIter += GetTestCallbacks(metricPSNR, metricSSIM, imageNumberMetric)
 
     if not os.path.exists(WEIGHTS_DIRECTORY):
         raise IOError("File " + WEIGHTS_DIRECTORY + " not found")
     else:
-        wrapper.LoadWeights(
+        modelWrapper.LoadWeights(
             WEIGHTS_DIRECTORY, strictWeightLoad=True, loadOptimiser=False
         )
 
@@ -242,13 +242,15 @@ def Run():
             OUTPUT_DIRECTORY, SAVE_IMAGE_RATE, "factor_" + factor.__str__()
         )
 
-        wrapper.OnTestIter += tuneFactorLambda
-        wrapper.OnTestIter += saveImageCallback
+        modelWrapper.OnTestIter += tuneFactorLambda
+        modelWrapper.OnTestIter += saveImageCallback
 
         network.InterpolateAndLoadWeights(factor)
-        wrapper.Test(testDataloader)
+        modelWrapper.Test(testDataloader)
 
-        wrapper.OnTestIter -= tuneFactorLambda
+        modelWrapper.OnTestIter -= tuneFactorLambda
+        modelWrapper.OnTestIter -= saveImageCallback
+
 
     metricsToCsv.Write()
 
@@ -257,7 +259,7 @@ if __name__ == "__main__":
     global _logger
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    _logger = logging.getLogger(__name__)
-    _logger.setLevel(logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
 
     Run()
