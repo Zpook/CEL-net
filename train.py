@@ -59,7 +59,7 @@ VALIDATION_RATE: int = 50
 VALIDATION_DEVICE = "cpu"
 VALIDATION_PATCH_SIZE: Union[Tuple[int], int] = 512
 
-LOGGING_FILE_ENALBED: bool = True
+LOGGING_FILE_ENALBED: bool = False
 LOGGING_OUTPUT_FILE: str = "./local/train_log.txt"
 
 METRICS_ENABLED: bool = True
