@@ -107,7 +107,7 @@ class TrainMetricsHandler:
 
         self.metricsFile = metric_handlers.MetricsToCsv(
             self.filepath,
-            [self.metric_epoch, self.metric_loss, self],
+            [self.metric_epoch, self.metric_loss],
         )
 
 
