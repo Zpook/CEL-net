@@ -248,11 +248,8 @@ def Run():
     if VALIDATION_ENALBED:
         validationTransforms = transforms.Compose(
             [
-                common.GetTrainTransforms(
-                    TRUTH_IMAGE_BPS,
-                    VALIDATION_PATCH_SIZE,
-                    normalize=False,
-                    device=VALIDATION_DEVICE,
+                common.GetEvalTransforms(
+                    TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
                 ),
                 exposureNormTransform,
             ]
