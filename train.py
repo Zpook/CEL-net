@@ -249,7 +249,7 @@ def Run():
         validationTransforms = transforms.Compose(
             [
                 common.GetEvalTransforms(
-                    TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=MODEL_DEVICE
+                    TRUTH_IMAGE_BPS, PATCH_SIZE, normalize=False, device=VALIDATION_DEVICE
                 ),
                 exposureNormTransform,
             ]
