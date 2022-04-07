@@ -165,7 +165,8 @@ class ValidationHandler:
         logger.info("Running validation")
         self.wrapper.ToDevice(self.device)
         self._currentDir = self.outdir + epochIndex.__str__() + "/"
-        os.mkdir(self._currentDir)
+        if not os.path.exists(self._currentDir):
+            os.mkdir(self._currentDir)
 
         self.metric_PSNR.Flush()
         self.metric_SSIM.Flush()
