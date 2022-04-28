@@ -156,7 +156,11 @@ class NormByRelight_Local(dataset_transforms._PairMetaTransform):
         trainImage = lightmap.Relight(trainImage, localMap)
 
         if self._normalize:
-            maxValue = localMap[self._normValue]
+            directMap = np.linspace(0,RAW_WHITE_LEVEL,RAW_WHITE_LEVEL)
+            maxValue = np.multiply(localMap,directMap[:,np.newaxis])[0:self._normValue,:].max()
+
+            trainImage = trainImage/maxValue
+
             
         else:
             trainImage /= RAW_WHITE_LEVEL - RAW_BLACK_LEVEL
